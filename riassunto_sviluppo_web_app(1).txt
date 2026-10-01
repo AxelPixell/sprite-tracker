@@ -58,3 +58,17 @@
 - Configurazione dei "Domini Autorizzati" nella console di Firebase 
   Authentication per permettere l'autenticazione Google dal dominio pubblicato.
 ========================================================================
+
+Cosa è stato aggiornato:
+Formato CSV (Import/Export):
+- Ogni riga gestisce fino a 5 varianti: Nome, Link Immagine, Variante 1, Variante 2, Variante 3, Variante 4, Variante 5.
+- I campi vuoti o senza variante vengono valorizzati/esportati con il simbolo -.
+
+Cancellazione Globale (Owner):
+- Aggiunto il pulsante "Svuota Catalogo" nella modale CSV che cancella tutti gli spiritelli presenti su Firebase in un solo clic (previa conferma).
+
+-------------------------------------------------------------------------
+
+Cosa è stato modificato:
+- Controllo dello Stato: fData.states[sprite.id] === 1 è stato sostituito con fState === 1 || fState === 2 per includere entrambi gli stati di possesso.   
+- Override dei Filtri CSS: Sono state aggiunte le classi Tailwind [filter:none] e [opacity:1] al contenitore del badge degli amici. In questo modo Tailwind annulla l'effetto di grigio/oscuramento ereditato da .sprite-locked, rendendo la lista degli amici brillante e nitida anche quando la scheda dello spiritello è bloccata. 
