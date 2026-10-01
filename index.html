@@ -697,16 +697,13 @@
       if (event && event.target.closest('.no-cycle')) return;
       if (!currentUser) return alert("Effettua prima il login per salvare la tua collezione personale!");
       if (compareMode) return;
-
+    
       const currentState = userStates[spriteId] || 0;
       const newState = (currentState + 1) % 3;
       
-      if (newState === 0) {
-        delete userStates[spriteId];
-      } else {
-        userStates[spriteId] = newState;
-      }
-
+      // Assegna sempre lo stato espresso come numero (0 = Oscurato, 1 = Posseduto, 2 = Incoronato)
+      userStates[spriteId] = newState;
+    
       saveUserData();
       renderSprites();
     };
