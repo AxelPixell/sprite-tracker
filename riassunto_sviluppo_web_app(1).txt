@@ -1,0 +1,60 @@
+========================================================================
+    RIASSUNTO SVILUPPO E MODIFICHE: WEB APP FORNITE SPRITE TRACKER
+========================================================================
+
+1. ARCHITETTURA E STACK TECNOLOGICO
+------------------------------------------------------------------------
+- Interfaccia Web Single-Page (HTML5, Tailwind CSS, Lucide Icons).
+- Backend & Cloud Storage: Firebase (Authentication + Firestore Database).
+- Gestione dati locale: LocalStorage per salvataggi temporanei / modalità offline.
+
+2. FUNZIONALITÀ DEDICATE ALL'ACCOUNT OWNER (ADMIN)
+------------------------------------------------------------------------
+- Identificazione dell'Owner tramite verifica dell'indirizzo email 
+  registrato e configurato nella costante del codice (OWNER_EMAIL).
+- Autorizzazione esclusiva per la modifica del catalogo globale di spiritelli:
+  * Creazione, modifica ed eliminazione di spiritelli e relative categorie.
+  * Inserimento e gestione dinamica delle varianti per ogni spiritello 
+    (definizione di nome variante e immagine dedicata tramite URL o file locale).
+  * Pannello dedicato per Importazione ed Esportazione in formato CSV/Excel 
+    del catalogo globale con mappatura dei nomi per le varianti.
+  * Regole di sicurezza Firestore che limitano i permessi di scrittura nel 
+    documento del catalogo globale al solo account Owner.
+
+3. FUNZIONALITÀ PER GLI UTENTI E I GIOCATORI
+------------------------------------------------------------------------
+- Accesso Pubblico:
+  * Gli utenti non autenticati o i giocatori standard possono visualizzare 
+    l'intero catalogo globale creato dall'Owner in modalità sola lettura.
+  * Filtro di ricerca rapida in tempo reale per nome spiritello o variante.
+  
+- Collezione Personale Cloud (utenti autenticati tramite Google Login):
+  * Cliccando sulle schede degli spiritelli, ogni utente può ciclarne 
+    lo stato personale:
+      - Stato 0: Non posseduto (grigio/oscurato)
+      - Stato 1: Posseduto (colore/evidenziato in viola)
+      - Stato 2: Incoronato (bordo oro con icona corona)
+  * Gli stati personali del giocatore vengono salvati separatamente su 
+    Firestore (collezione `/users/{uid}`), lasciando inalterato il catalogo 
+    globale e permettendo la sincronizzazione tra più dispositivi.
+
+4. SISTEMA DI SOCIALIZZAIONE E CONFRONTO TRA AMICI
+------------------------------------------------------------------------
+- Ogni utente registrato ha un ID Univoco (UID) generato da Firebase, 
+  facilmente copiatile tramite l'interfaccia dell'app.
+- Modalità Confronto Amici:
+  * Inserendo l'UID di un altro giocatore, l'app interroga Firestore per 
+    leggere gli stati della collezione dell'amico.
+  * Viene attivata una vista di confronto con un banner dedicato che mostra 
+    un badge sotto ogni spiritello indicante lo stato dell'amico 
+    ("Manca", "Posseduto", "Incoronato").
+- Regole di sicurezza Firestore aggiornate per consentire la lettura dei 
+  profili personali tra utenti autenticati ai fini del confronto.
+
+5. PROCEDURA DI DEPLOYMENT ONLINE
+------------------------------------------------------------------------
+- Guida passo-passo per la pubblicazione gratuita dell'app tramite piattaforme 
+  cloud hosting (es. Netlify Drop / GitHub Pages).
+- Configurazione dei "Domini Autorizzati" nella console di Firebase 
+  Authentication per permettere l'autenticazione Google dal dominio pubblicato.
+========================================================================

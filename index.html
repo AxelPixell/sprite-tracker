@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fortnite Sprite Tracker</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    .sprite-card {
+      transition: all 0.3s ease;
+    }
+    .sprite-locked {
+      filter: grayscale(100%) brightness(0.3);
+      opacity: 0.6;
+    }
+    .sprite-locked .sprite-name {
+      filter: blur(4px);
+      user-select: none;
+    }
+    .sprite-owned {
+      filter: grayscale(0%) brightness(1);
+      opacity: 1;
+    }
+    .sprite-crowned {
+      filter: grayscale(0%) brightness(1.1);
+      opacity: 1;
+      box-shadow: 0 0 15px rgba(234, 179, 8, 0.6);
+      border-color: #eab308 !important;
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen pb-12 font-sans">
+
+  <!-- Navbar -->
+  <nav class="bg-slate-800 border-b border-slate-700 sticky top-0 z-50 px-4 py-3 shadow-lg">
+    <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-4">
+      <div class="flex items-center gap-2">
+        <i data-lucide="ghost" class="text-purple-400 w-8 h-8"></i>
+        <h1 class="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">
+          Fortnite Sprites
+        </h1>
+      </div>
+
+      <!-- Azioni, CSV e Auth -->
+      <div class="flex items-center gap-2 flex-wrap">
+        <button id="btn-add-sprite" onclick="openAddModal()" class="hidden bg-purple-600 hover:bg-purple-500 text-white px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-1 transition">
+          <i data-lucide="plus" class="w-4 h-4"></i> Aggiungi (Owner)
+        </button>
+
+        <button id="btn-csv-modal" onclick="toggleModal('modal-csv')" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-1 transition">
+          <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Gestisci CSV
+        </button>
+
+        <button onclick="toggleModal('modal-friends')" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-1 transition">
+          <i data-lucide="user-plus" class="w-4 h-4"></i> Cerca UID
+        </button>
+
+        <div id="auth-container">
+          <button id="btn-login" onclick="loginWithGoogle()" class="bg-amber-500 hover:bg-amber-400 text-slate-900 px-3 py-2 rounded-lg text-sm font-bold flex items-center gap-1 transition">
+            <i data-lucide="log-in" class="w-4 h-4"></i> Accedi
+          </button>
+          <div id="user-profile" class="hidden flex items-center gap-2">
+            <img id="user-avatar" class="w-8 h-8 rounded-full border border-purple-400" src="" alt="Avatar">
+            <button onclick="logout()" class="text-slate-400 hover:text-red-400 p-1" title="Disconnettiti">
+              <i data-lucide="log-out" class="w-5 h-5"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Contenuto Principale (Layout a Griglia) -->
+  <main class="max-w-7xl mx-auto px-4 mt-6">
+    
+    <!-- Banner Modalità Confronto -->
+    <div id="compare-banner" class="hidden bg-indigo-900/80 border border-indigo-500 p-4 rounded-xl mb-6 flex justify-between items-center">
+      <div class="flex items-center gap-3">
+        <i data-lucide="arrow-right-left" class="text-indigo-400 w-6 h-6"></i>
+        <div>
+          <h3 class="font-bold text-indigo-200">Modalità Confronto Attiva</h3>
+          <p class="text-xs text-indigo-300">Stai confrontando la tua collezione con quella di <span id="compare-friend-name" class="font-bold text-white"></span>.</p>
+        </div>
+      </div>
+      <button onclick="exitCompareMode()" class="bg-indigo-700 hover:bg-indigo-600 text-xs px-3 py-1.5 rounded-lg font-semibold">
+        Esci da Confronto
+      </button>
+    </div>
+
+    <!-- Layout a 2 Colonne: Main Content + Sidebar Amici a Destra -->
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      
+      <!-- Colonna Sinistra / Centrale: Catalogo Spiritelli -->
+      <div class="lg:col-span-3 space-y-6">
+        <!-- Filtri e Statistiche -->
+        <div class="flex flex-wrap justify-between items-center gap-4 bg-slate-800/50 p-4 rounded-xl border border-slate-700/50">
+          <div class="text-sm text-slate-400">
+            I tuoi Spiritelli sbloccati: <span id="stats-unlocked" class="text-purple-400 font-bold">0</span> / <span id="stats-total">0</span>
+          </div>
+          <div class="flex gap-2">
+            <input type="text" id="search-input" oninput="renderSprites()" placeholder="Cerca spiritello o variante..." class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-500">
+          </div>
+        </div>
+
+        <!-- Lista Spiritelli Raggruppati -->
+        <div id="sprites-container" class="space-y-8">
+          <!-- Generato dinamicamente via JS -->
+        </div>
+      </div>
+
+      <!-- Colonna Destra: Sidebar Lista Amici -->
+      <div class="lg:col-span-1">
+        <div class="bg-slate-800/60 border border-slate-700 rounded-2xl p-4 sticky top-20 shadow-lg">
+          <div class="flex justify-between items-center mb-4 border-b border-slate-700/80 pb-3">
+            <h2 class="font-bold text-slate-200 flex items-center gap-2 text-base">
+              <i data-lucide="users" class="text-purple-400 w-5 h-5"></i> I Tuoi Amici
+            </h2>
+            <span id="friends-count" class="bg-purple-900/60 text-purple-300 text-xs px-2 py-0.5 rounded-full font-semibold">0</span>
+          </div>
+
+          <div id="friends-list-container" class="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
+            <!-- Amici caricati dinamicamente -->
+            <p class="text-xs text-slate-500 text-center py-4">Nessun amico aggiunto.</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Modal Cerca UID & Aggiungi Amico -->
+  <div id="modal-friends" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-md w-full shadow-2xl">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-bold">Cerca Utente per UID</h3>
+        <button onclick="toggleModal('modal-friends')" class="text-slate-400 hover:text-white"><i data-lucide="x"></i></button>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Il tuo ID Utente (Condividilo)</label>
+          <div class="flex gap-2">
+            <input type="text" id="my-user-id" readonly class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-slate-400 font-mono" value="Effettua il login per vedere l'ID">
+            <button onclick="copyUserId()" class="bg-slate-700 hover:bg-slate-600 px-3 rounded-lg text-xs font-medium">Copia</button>
+          </div>
+        </div>
+        <hr class="border-slate-700">
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Cerca UID Amico</label>
+          <div class="flex gap-2">
+            <input type="text" id="friend-id-input" placeholder="Incolla UID dell'amico" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm focus:outline-none">
+            <button onclick="searchUserByUid()" class="bg-purple-600 hover:bg-purple-500 px-4 rounded-lg text-sm font-medium">Cerca</button>
+          </div>
+        </div>
+
+        <!-- Risultato Ricerca Amico -->
+        <div id="search-result-container" class="hidden mt-3 p-3 bg-slate-900/80 rounded-xl border border-slate-700 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-full bg-purple-600/30 flex items-center justify-center text-purple-300 font-bold text-xs" id="search-res-avatar">?</div>
+            <div>
+              <div class="text-xs font-bold text-slate-200" id="search-res-name">Nome Utente</div>
+              <div class="text-[10px] text-slate-400 font-mono" id="search-res-uid">UID</div>
+            </div>
+          </div>
+          <button id="btn-add-friend" onclick="addFriendFromSearch()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1">
+            <i data-lucide="user-plus" class="w-3.5 h-3.5"></i> Aggiungi
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase App SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const OWNER_EMAIL = "pxyspam@gmail.com";
+
+    import firebaseConfig from './config.js';
+
+    // Inizializzazione Firebase
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+
+    let app, auth, db;
+    const isFirebaseConfigured = firebaseConfig.apiKey !== "YOUR_API_KEY"; //?
+
+    if (isFirebaseConfigured) {
+      app = initializeApp(firebaseConfig);
+      auth = getAuth(app);
+      db = getFirestore(app);
+    }
+
+    let currentUser = null;
+    let isOwner = false;
+
+    let globalSprites = JSON.parse(localStorage.getItem('fortnite_sprites_global')) || [];
+    let userStates = JSON.parse(localStorage.getItem('fortnite_user_states')) || {};
+    
+    // Lista UID Amici & Mappa con le loro collezioni { uid: { displayName, states } }
+    let myFriendsUids = [];
+    let friendsDataMap = {};
+
+    let searchedUserData = null;
+    let friendStates = null;
+    let compareMode = false;
+    let friendName = "";
+
+    lucide.createIcons();
+
+    window.toggleModal = (id) => {
+      document.getElementById(id).classList.toggle('hidden');
+    };
+
+    window.loginWithGoogle = async () => {
+      if(!isFirebaseConfigured) return alert("Configura le chiavi Firebase per abilitare il Login!");
+      const provider = new GoogleAuthProvider();
+      try { await signInWithPopup(auth, provider); } catch (err) { console.error(err); }
+    };
+
+    window.logout = () => { if(auth) signOut(auth); };
+
+    if (isFirebaseConfigured) {
+      // 1. Carica catalogo globale
+      onSnapshot(doc(db, "global", "sprites_catalog"), (docSnap) => {
+        if (docSnap.exists()) {
+          globalSprites = docSnap.data().sprites || [];
+          localStorage.setItem('fortnite_sprites_global', JSON.stringify(globalSprites));
+          renderSprites();
+        }
+      });
+
+      // 2. Ascolto Stato Auth
+      onAuthStateChanged(auth, (user) => {
+        currentUser = user;
+        const btnLogin = document.getElementById('btn-login');
+        const userProfile = document.getElementById('user-profile');
+        const myUserIdInput = document.getElementById('my-user-id');
+        const btnAdd = document.getElementById('btn-add-sprite');
+        const btnCsv = document.getElementById('btn-csv-modal');
+
+        if (user) {
+          isOwner = (user.email === OWNER_EMAIL);
+          btnLogin.classList.add('hidden');
+          userProfile.classList.remove('hidden');
+          document.getElementById('user-avatar').src = user.photoURL;
+          myUserIdInput.value = user.uid;
+
+          if (isOwner) {
+            btnAdd.classList.remove('hidden');
+            btnCsv.classList.remove('hidden');
+          } else {
+            btnAdd.classList.add('hidden');
+            btnCsv.classList.add('hidden');
+          }
+
+          syncUserData();
+        } else {
+          isOwner = false;
+          userStates = {};
+          myFriendsUids = [];
+          friendsDataMap = {};
+          btnLogin.classList.remove('hidden');
+          userProfile.classList.add('hidden');
+          btnAdd.classList.add('hidden');
+          btnCsv.classList.add('hidden');
+          myUserIdInput.value = "Effettua il login per vedere l'ID";
+          renderFriendsList();
+          renderSprites();
+        }
+      });
+    }
+
+    // Sincronizza stato personale e lista amici
+    function syncUserData() {
+      if (!currentUser || !isFirebaseConfigured) return;
+      onSnapshot(doc(db, "users", currentUser.uid), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          userStates = data.states || {};
+          myFriendsUids = data.friends || [];
+          localStorage.setItem('fortnite_user_states', JSON.stringify(userStates));
+          loadFriendsData();
+        } else {
+          // Crea profilo se non esiste
+          saveUserData();
+        }
+      });
+    }
+
+    // Carica collezioni degli amici per mostrare chi possiede gli spiritelli
+    function loadFriendsData() {
+      friendsDataMap = {};
+      if (myFriendsUids.length === 0) {
+        renderFriendsList();
+        renderSprites();
+        return;
+      }
+
+      let loadedCount = 0;
+      myFriendsUids.forEach(fUid => {
+        onSnapshot(doc(db, "users", fUid), (fSnap) => {
+          if (fSnap.exists()) {
+            friendsDataMap[fUid] = fSnap.data();
+          }
+          loadedCount++;
+          if (loadedCount >= myFriendsUids.length) {
+            renderFriendsList();
+            renderSprites();
+          }
+        });
+      });
+    }
+
+    function saveUserData() {
+      if (currentUser && isFirebaseConfigured) {
+        setDoc(doc(db, "users", currentUser.uid), {
+          displayName: currentUser.displayName || "Giocatore",
+          states: userStates,
+          friends: myFriendsUids
+        }, { merge: true });
+      }
+    }
+
+    // Ricerca Amico tramite UID
+    window.searchUserByUid = async () => {
+      const targetUid = document.getElementById('friend-id-input').value.trim();
+      const resContainer = document.getElementById('search-result-container');
+      if (!targetUid) return;
+
+      if (targetUid === currentUser?.uid) {
+        alert("Questo è il tuo ID utente!");
+        return;
+      }
+
+      try {
+        const userSnap = await getDoc(doc(db, "users", targetUid));
+        if (userSnap.exists()) {
+          const data = userSnap.data();
+          searchedUserData = { uid: targetUid, name: data.displayName || "Utente Fortnite" };
+          
+          document.getElementById('search-res-name').innerText = searchedUserData.name;
+          document.getElementById('search-res-uid').innerText = targetUid;
+          document.getElementById('search-res-avatar').innerText = searchedUserData.name.charAt(0).toUpperCase();
+
+          const btnAdd = document.getElementById('btn-add-friend');
+          if (myFriendsUids.includes(targetUid)) {
+            btnAdd.innerText = "Già Amico";
+            btnAdd.disabled = true;
+            btnAdd.className = "bg-slate-700 text-slate-400 text-xs px-3 py-1.5 rounded-lg font-semibold cursor-not-allowed";
+          } else {
+            btnAdd.innerText = "Aggiungi";
+            btnAdd.disabled = false;
+            btnAdd.className = "bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1";
+          }
+
+          resContainer.classList.remove('hidden');
+        } else {
+          alert("Nessun utente trovato con questo UID!");
+          resContainer.classList.add('hidden');
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Errore nella ricerca dell'utente.");
+      }
+    };
+
+    window.addFriendFromSearch = () => {
+      if (!searchedUserData || myFriendsUids.includes(searchedUserData.uid)) return;
+      myFriendsUids.push(searchedUserData.uid);
+      saveUserData();
+      document.getElementById('search-result-container').classList.add('hidden');
+      document.getElementById('friend-id-input').value = "";
+      toggleModal('modal-friends');
+      alert(`${searchedUserData.name} aggiunto alla lista amici!`);
+    };
+
+    window.removeFriend = (friendUid) => {
+      if (confirm("Rimuovere questo amico dalla lista?")) {
+        myFriendsUids = myFriendsUids.filter(id => id !== friendUid);
+        delete friendsDataMap[friendUid];
+        saveUserData();
+      }
+    };
+
+    window.startComparisonWithUid = (friendUid) => {
+      const fData = friendsDataMap[friendUid];
+      if (!fData) return;
+      friendStates = fData.states || {};
+      friendName = fData.displayName || "Amico";
+      compareMode = true;
+
+      document.getElementById('compare-friend-name').innerText = friendName;
+      document.getElementById('compare-banner').classList.remove('hidden');
+      renderSprites();
+    };
+
+    window.exitCompareMode = () => {
+      compareMode = false;
+      friendStates = null;
+      document.getElementById('compare-banner').classList.add('hidden');
+      renderSprites();
+    };
+
+    // Renderizza Sidebar Amici
+    function renderFriendsList() {
+      const container = document.getElementById('friends-list-container');
+      const countEl = document.getElementById('friends-count');
+      container.innerHTML = '';
+      countEl.innerText = myFriendsUids.length;
+
+      if (myFriendsUids.length === 0) {
+        container.innerHTML = `<p class="text-xs text-slate-500 text-center py-4">Nessun amico aggiunto. Cerca un UID per aggiungerlo!</p>`;
+        return;
+      }
+
+      myFriendsUids.forEach(uid => {
+        const friend = friendsDataMap[uid] || { displayName: "Caricamento..." };
+        const div = document.createElement('div');
+        div.className = "bg-slate-900/80 border border-slate-700/60 p-2.5 rounded-xl flex items-center justify-between text-xs";
+        
+        div.innerHTML = `
+          <div class="flex items-center gap-2 truncate">
+            <div class="w-7 h-7 rounded-full bg-purple-600/40 text-purple-300 flex items-center justify-center font-bold text-xs shrink-0">
+              ${friend.displayName.charAt(0).toUpperCase()}
+            </div>
+            <span class="font-medium text-slate-200 truncate" title="${friend.displayName}">${friend.displayName}</span>
+          </div>
+          <div class="flex items-center gap-1 shrink-0">
+            <button onclick="startComparisonWithUid('${uid}')" class="p-1.5 bg-indigo-600/30 hover:bg-indigo-600 text-indigo-300 hover:text-white rounded-lg transition" title="Confronta collezione">
+              <i data-lucide="arrow-right-left" class="w-3.5 h-3.5"></i>
+            </button>
+            <button onclick="removeFriend('${uid}')" class="p-1.5 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white rounded-lg transition" title="Rimuovi amico">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+
+      lucide.createIcons();
+    }
+
+    // Cambia stato personale (0 -> 1 -> 2 -> 0)
+    window.cycleState = (spriteId, event) => {
+      if (event && event.target.closest('.no-cycle')) return;
+      if (!currentUser) return alert("Effettua prima il login per salvare la tua collezione personale!");
+      if (compareMode) return;
+
+      const currentState = userStates[spriteId] || 0;
+      const newState = (currentState + 1) % 3;
+      
+      if (newState === 0) {
+        delete userStates[spriteId];
+      } else {
+        userStates[spriteId] = newState;
+      }
+
+      saveUserData();
+      renderSprites();
+    };
+
+    window.copyUserId = () => {
+      navigator.clipboard.writeText(document.getElementById('my-user-id').value);
+      alert("ID utente copiato!");
+    };
+
+    // Renderizza Catalogo Spiritelli
+    window.renderSprites = () => {
+      const container = document.getElementById('sprites-container');
+      const searchQuery = document.getElementById('search-input').value.toLowerCase();
+      container.innerHTML = '';
+
+      const grouped = {};
+      globalSprites.forEach(sprite => {
+        if (sprite.name.toLowerCase().includes(searchQuery) || sprite.variant.toLowerCase().includes(searchQuery)) {
+          if (!grouped[sprite.name]) grouped[sprite.name] = [];
+          grouped[sprite.name].push(sprite);
+        }
+      });
+
+      let totalUnlocked = 0;
+      let totalCount = globalSprites.length;
+
+      if (Object.keys(grouped).length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-12 text-slate-500">
+            <i data-lucide="ghost" class="w-12 h-12 mx-auto mb-2 opacity-50"></i>
+            <p>Nessun spiritello presente nel catalogo.</p>
+          </div>
+        `;
+        lucide.createIcons();
+        return;
+      }
+
+      for (const [categoryName, variants] of Object.entries(grouped)) {
+        const groupEl = document.createElement('div');
+        groupEl.className = "bg-slate-800/40 rounded-2xl p-5 border border-slate-700/60";
+
+        let cardsHTML = '';
+        variants.forEach(sprite => {
+          const myState = userStates[sprite.id] || 0;
+          if (myState > 0) totalUnlocked++;
+
+          let stateClass = "sprite-locked";
+          let crownIcon = "";
+          
+          if (myState === 1) stateClass = "sprite-owned border-purple-500";
+          if (myState === 2) {
+            stateClass = "sprite-crowned border-amber-400";
+            crownIcon = `<div class="absolute -top-3 -right-2 bg-amber-500 text-slate-900 p-1 rounded-full shadow-lg z-10"><i data-lucide="crown" class="w-4 h-4 fill-slate-900"></i></div>`;
+          }
+
+          // TROVA GLI AMICI CHE POSSIEDONO QUESTO SPIRITELLO (Ignora lo stato incoronato = 2, considera stato posseduto = 1)
+          const friendsWhoOwn = [];
+          Object.entries(friendsDataMap).forEach(([fUid, fData]) => {
+            if (fData.states && fData.states[sprite.id] === 1) {
+              friendsWhoOwn.push(fData.displayName || "Amico");
+            }
+          });
+
+          let friendsWhoOwnBadge = "";
+          if (friendsWhoOwn.length > 0) {
+            friendsWhoOwnBadge = `
+              <div class="mt-2 text-[10px] bg-purple-950/80 text-purple-300 border border-purple-700/60 px-2 py-0.5 rounded-md text-center font-medium w-full truncate" title="Amici che lo possiedono: ${friendsWhoOwn.join(', ')}">
+                <i data-lucide="users" class="w-3 h-3 inline mr-0.5"></i> ${friendsWhoOwn.join(', ')}
+              </div>
+            `;
+          }
+
+          let friendCompareBadge = "";
+          if (compareMode && friendStates) {
+            const fState = friendStates[sprite.id] || 0;
+            let fColor = "bg-red-500/20 text-red-400 border-red-500/30";
+            let fText = "Manca";
+            if (fState === 1) { fColor = "bg-green-500/20 text-green-400 border-green-500/30"; fText = "Posseduto"; }
+            if (fState === 2) { fColor = "bg-amber-500/20 text-amber-400 border-amber-500/30"; fText = "👑 Incoronato"; }
+
+            friendCompareBadge = `
+              <div class="mt-1 text-[10px] px-2 py-0.5 rounded border text-center font-medium ${fColor}">
+                ${friendName}: ${fText}
+              </div>
+            `;
+          }
+
+          let editBtn = "";
+          if (isOwner && !compareMode) {
+            editBtn = `
+              <button onclick="openEditModal('${sprite.id}')" class="no-cycle absolute top-2 left-2 p-1 bg-slate-800/80 hover:bg-purple-600 rounded-lg text-slate-300 hover:text-white transition z-10" title="Modifica spiritello">
+                <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+              </button>
+            `;
+          }
+
+          cardsHTML += `
+            <div onclick="cycleState('${sprite.id}', event)" class="relative group cursor-pointer bg-slate-900 border-2 rounded-xl p-3 flex flex-col items-center justify-between transition-all duration-200 select-none ${stateClass}">
+              ${crownIcon}
+              ${editBtn}
+              <div class="w-full flex flex-col items-center">
+                <div class="w-20 h-20 mb-2 relative flex items-center justify-center">
+                  <img src="${sprite.image}" alt="${sprite.name}" class="max-h-full max-w-full object-contain rounded-md">
+                </div>
+                <span class="sprite-name font-bold text-xs text-center text-slate-200">${sprite.name}</span>
+                <span class="text-[10px] text-purple-400 font-medium text-center">${sprite.variant}</span>
+              </div>
+              <div class="w-full">
+                ${friendsWhoOwnBadge}
+                ${friendCompareBadge}
+              </div>
+            </div>
+          `;
+        });
+
+        groupEl.innerHTML = `
+          <h2 class="text-md font-bold mb-4 text-purple-300 flex items-center gap-2">
+            <i data-lucide="sparkles" class="w-4 h-4"></i> ${categoryName}
+          </h2>
+          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            ${cardsHTML}
+          </div>
+        `;
+        container.appendChild(groupEl);
+      }
+
+      document.getElementById('stats-unlocked').innerText = totalUnlocked;
+      document.getElementById('stats-total').innerText = totalCount;
+
+      lucide.createIcons();
+    };
+
+    renderSprites();
+  </script>
+</body>
+</html>
