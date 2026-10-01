@@ -168,7 +168,7 @@
     </div>
   </div>
 
-  <!-- Modal Gestisci CSV -->
+  <!-- Modal Gestisci CSV & Pulizia -->
   <div id="modal-csv" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
     <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-md w-full shadow-2xl">
       <div class="flex justify-between items-center mb-4">
@@ -178,15 +178,23 @@
         <button onclick="toggleModal('modal-csv')" class="text-slate-400 hover:text-white"><i data-lucide="x"></i></button>
       </div>
       <div class="space-y-4">
-        <p class="text-xs text-slate-300">Carica un file CSV con la struttura: <code class="bg-slate-900 px-1 py-0.5 rounded text-purple-300">Nome,Variante,Immagine</code>.</p>
+        <p class="text-xs text-slate-300">
+          Formato CSV richiesto: <br>
+          <code class="bg-slate-900 px-1 py-0.5 rounded text-purple-300 block mt-1">Nome, Link Immagine, Var1, Var2, Var3, Var4, Var5</code>
+          <span class="text-[10px] text-slate-400 block mt-1">Sostituisci i campi vuoti o mancanti con il simbolo <b>-</b></span>
+        </p>
         <input type="file" id="csv-file-input" accept=".csv" class="block w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-500 cursor-pointer border border-slate-700 rounded-lg bg-slate-900">
         
-        <div class="flex gap-2">
+        <div class="flex flex-col gap-2">
           <button onclick="importCSV()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded-lg text-xs font-bold transition">
             Importa e Sovrascrivi Catalogo
           </button>
           <button onclick="exportCSV()" class="w-full bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg text-xs font-bold transition">
             Esporta CSV Attuale
+          </button>
+          <hr class="border-slate-700 my-1">
+          <button onclick="clearAllSprites()" class="w-full bg-red-600 hover:bg-red-500 text-white py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Svuota Tutto il Catalogo
           </button>
         </div>
       </div>
@@ -207,7 +215,7 @@
           <input type="text" id="sprite-name" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm focus:outline-none focus:border-purple-500">
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-400 mb-1">Variante (es. Variante 1)</label>
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Variante (es. Variante 1 o -)</label>
           <input type="text" id="sprite-variant" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm focus:outline-none focus:border-purple-500">
         </div>
         <div>
@@ -284,6 +292,10 @@
       if (docSnap.exists()) {
         globalSprites = docSnap.data().sprites || [];
         localStorage.setItem('fortnite_sprites_global', JSON.stringify(globalSprites));
+        renderSprites();
+      } else {
+        globalSprites = [];
+        localStorage.setItem('fortnite_sprites_global', JSON.stringify([]));
         renderSprites();
       }
     });
@@ -385,6 +397,18 @@
       }
     }
 
+    // --- CANCELLAZIONE GLOBALE CATALOGO ---
+    window.clearAllSprites = async () => {
+      if (!isOwner) return alert("Solo l'owner può cancellare l'intero catalogo!");
+      
+      const confirmText = prompt("ATTENZIONE: Stai per ELIMINARE TUTTI GLI SPIRITELLI dal catalogo globale!\n\nDigita 'CANCELLA' per confermare:");
+      if (confirmText === "CANCELLA") {
+        await saveCatalogToFirebase([]);
+        alert("Tutti gli spiritelli sono stati eliminati dal catalogo!");
+        toggleModal('modal-csv');
+      }
+    };
+
     // --- GESTIONE MODALE AGGIUNGI / MODIFICA / ELIMINA ---
     window.openAddModal = () => {
       document.getElementById('modal-sprite-title').innerText = "Aggiungi Spiritello";
@@ -414,7 +438,7 @@
 
       const editId = document.getElementById('sprite-edit-id').value;
       const name = document.getElementById('sprite-name').value.trim();
-      const variant = document.getElementById('sprite-variant').value.trim();
+      const variant = document.getElementById('sprite-variant').value.trim() || "-";
       const image = document.getElementById('sprite-image').value.trim();
 
       if (editId) {
@@ -423,7 +447,7 @@
           globalSprites[index] = { id: editId, name, variant, image };
         }
       } else {
-        const newId = 'sprite_' + Date.now();
+        const newId = 'sprite_' + Date.now() + '_' + Math.random().toString(36).substring(2, 5);
         globalSprites.push({ id: newId, name, variant, image });
       }
 
@@ -443,7 +467,7 @@
       }
     };
 
-    // --- GESTIONE IMPORT / EXPORT CSV ---
+    // --- NUOVA GESTIONE IMPORT / EXPORT CSV (7 COLONNE: Nome, Link, Var1, Var2, Var3, Var4, Var5) ---
     window.importCSV = () => {
       if (!isOwner) return alert("Solo l'owner può importare il CSV!");
       const fileInput = document.getElementById('csv-file-input');
@@ -460,28 +484,53 @@
         const lines = text.split(/\r\n|\n/);
         const newCatalog = [];
 
-        lines.forEach((line, index) => {
+        lines.forEach((line, lineIdx) => {
           if (!line.trim()) return;
-          const parts = line.split(',');
-          if (parts.length >= 3) {
-            const name = parts[0].trim();
-            const variant = parts[1].trim();
-            const image = parts[2].trim();
+          
+          // Regex per gestire correttamente i valori separati da virgola anche se racchiusi tra virgolette
+          const parts = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || line.split(',');
+          const cleanParts = parts.map(p => p.replace(/^"|"$/g, '').trim());
 
-            if (index === 0 && name.toLowerCase() === 'nome') return;
+          if (cleanParts.length >= 2) {
+            const name = cleanParts[0] || "-";
+            const image = cleanParts[1] || "-";
 
-            newCatalog.push({
-              id: 'sprite_' + index + '_' + Date.now(),
-              name,
-              variant,
-              image
-            });
+            // Salta l'eventuale riga di intestazione del CSV
+            if (lineIdx === 0 && name.toLowerCase() === 'nome') return;
+
+            // Legge le varianti dalle colonne 2 a 6 (max 5 varianti)
+            const variants = [];
+            for (let i = 2; i <= 6; i++) {
+              if (cleanParts[i] && cleanParts[i] !== "-" && cleanParts[i] !== "") {
+                variants.push(cleanParts[i]);
+              }
+            }
+
+            // Se nessuna variante è definita o c'è solo "-", crea un elemento con variante "-"
+            if (variants.length === 0) {
+              newCatalog.push({
+                id: 'sprite_' + lineIdx + '_0_' + Date.now(),
+                name,
+                image,
+                variant: '-'
+              });
+            } else {
+              // Crea uno spiritello separato per ogni variante specificata
+              variants.forEach((vName, vIdx) => {
+                newCatalog.push({
+                  id: 'sprite_' + lineIdx + '_' + vIdx + '_' + Date.now(),
+                  name,
+                  image,
+                  variant: vName
+                });
+              });
+            }
           }
         });
 
         if (newCatalog.length > 0) {
           await saveCatalogToFirebase(newCatalog);
-          alert(`Importati con successo ${newCatalog.length} spiritelli!`);
+          alert(`Importazione completata con successo! Inseriti ${newCatalog.length} elementi.`);
           toggleModal('modal-csv');
         } else {
           alert("Nessun dato valido trovato nel file CSV.");
@@ -495,10 +544,28 @@
         alert("Il catalogo è vuoto!");
         return;
       }
-      let csvContent = "data:text/csv;charset=utf-8,Nome,Variante,Immagine\n";
+
+      // Raggruppa le varianti per ogni Nome + Immagine
+      const grouped = {};
       globalSprites.forEach(s => {
-        csvContent += `"${s.name}","${s.variant}","${s.image}"\n`;
+        const key = `${s.name}|||${s.image}`;
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(s.variant);
       });
+
+      let csvContent = "data:text/csv;charset=utf-8,Nome,Link Immagine,Variante 1,Variante 2,Variante 3,Variante 4,Variante 5\n";
+
+      for (const [key, variants] of Object.entries(grouped)) {
+        const [name, image] = key.split('|||');
+        
+        const varCols = [];
+        for (let i = 0; i < 5; i++) {
+          varCols.push(variants[i] && variants[i] !== "" ? `"${variants[i]}"` : '"-"');
+        }
+
+        csvContent += `"${name}","${image}",${varCols.join(',')}\n`;
+      }
+
       const encodedUri = encodeURI(csvContent);
       const link = document.createElement("a");
       link.setAttribute("href", encodedUri);
