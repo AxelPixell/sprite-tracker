@@ -12,13 +12,9 @@
     .sprite-card {
       transition: all 0.3s ease;
     }
-    .sprite-locked {
+    .sprite-locked-img {
       filter: grayscale(100%) brightness(0.3);
       opacity: 0.6;
-    }
-    .sprite-locked .sprite-name {
-      filter: blur(4px);
-      user-select: none;
     }
     .sprite-owned {
       filter: grayscale(0%) brightness(1);
@@ -201,36 +197,63 @@
     </div>
   </div>
 
-  <!-- Modal Aggiungi / Modifica Spiritello -->
+  <!-- Modal Aggiungi Singolo Spiritello -->
   <div id="modal-sprite" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
     <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-md w-full shadow-2xl">
       <div class="flex justify-between items-center mb-4">
-        <h3 id="modal-sprite-title" class="text-lg font-bold">Aggiungi Spiritello</h3>
+        <h3 class="text-lg font-bold">Aggiungi Spiritello</h3>
         <button onclick="toggleModal('modal-sprite')" class="text-slate-400 hover:text-white"><i data-lucide="x"></i></button>
       </div>
-      <form id="sprite-form" onsubmit="saveSprite(event)" class="space-y-3">
-        <input type="hidden" id="sprite-edit-id">
+      <form onsubmit="saveNewSprite(event)" class="space-y-3">
         <div>
           <label class="block text-xs font-semibold text-slate-400 mb-1">Nome Spiritello (es. Jonesy)</label>
-          <input type="text" id="sprite-name" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm focus:outline-none focus:border-purple-500">
+          <input type="text" id="add-sprite-name" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm focus:outline-none focus:border-purple-500">
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-400 mb-1">Variante (es. Variante 1 o -)</label>
-          <input type="text" id="sprite-variant" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm focus:outline-none focus:border-purple-500">
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Variante (es. BASE o -)</label>
+          <input type="text" id="add-sprite-variant" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm focus:outline-none focus:border-purple-500">
         </div>
         <div>
           <label class="block text-xs font-semibold text-slate-400 mb-1">URL Immagine</label>
-          <input type="url" id="sprite-image" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm focus:outline-none focus:border-purple-500">
+          <input type="url" id="add-sprite-image" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm focus:outline-none focus:border-purple-500">
         </div>
-        <div class="flex gap-2 pt-2">
+        <div class="pt-2">
           <button type="submit" class="w-full bg-purple-600 hover:bg-purple-500 text-white py-2 rounded-lg text-xs font-bold transition">
-            Salva
-          </button>
-          <button type="button" id="btn-delete-sprite" onclick="deleteSprite()" class="hidden bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg text-xs font-bold transition">
-            Elimina
+            Salva Spiritello
           </button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Modal Modifica Completa Spiritello & Varianti -->
+  <div id="modal-group-edit" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-lg w-full shadow-2xl max-h-[90vh] flex flex-col">
+      <div class="flex justify-between items-center mb-4 pb-2 border-b border-slate-700">
+        <h3 class="text-lg font-bold text-purple-300">Modifica Spiritello</h3>
+        <button onclick="toggleModal('modal-group-edit')" class="text-slate-400 hover:text-white"><i data-lucide="x"></i></button>
+      </div>
+
+      <div class="space-y-4 overflow-y-auto pr-1 flex-1">
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Nome Spiritello</label>
+          <input type="text" id="group-edit-name" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm font-bold text-white focus:outline-none focus:border-purple-500">
+        </div>
+
+        <div>
+          <h4 class="text-xs font-bold text-slate-300 mb-2">Varianti Associate</h4>
+          <div id="group-variants-container" class="space-y-3"></div>
+        </div>
+      </div>
+
+      <div class="pt-4 border-t border-slate-700 mt-4 flex gap-2">
+        <button onclick="saveGroupEdit()" class="w-full bg-purple-600 hover:bg-purple-500 text-white py-2 rounded-lg text-xs font-bold transition">
+          Salva Tutte le Modifiche
+        </button>
+        <button onclick="toggleModal('modal-group-edit')" class="w-full bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg text-xs font-bold transition">
+          Annulla
+        </button>
+      </div>
     </div>
   </div>
 
@@ -268,6 +291,8 @@
     let friendStates = null;
     let compareMode = false;
     let friendName = "";
+
+    let currentEditingCategoryName = "";
 
     lucide.createIcons();
 
@@ -342,7 +367,7 @@
 
     function syncUserData() {
       if (!currentUser) return;
-      onSnapshot(doc(db, "users", currentUser.uid), (docSnap) => {
+      onSnapshot(doc(doc(db, "users", currentUser.uid).firestore, "users", currentUser.uid), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
           userStates = data.states || {};
@@ -409,65 +434,120 @@
       }
     };
 
-    // --- GESTIONE MODALE AGGIUNGI / MODIFICA / ELIMINA ---
-    window.openAddModal = () => {
-      document.getElementById('modal-sprite-title').innerText = "Aggiungi Spiritello";
-      document.getElementById('sprite-edit-id').value = "";
-      document.getElementById('sprite-name').value = "";
-      document.getElementById('sprite-variant').value = "";
-      document.getElementById('sprite-image').value = "";
-      document.getElementById('btn-delete-sprite').classList.add('hidden');
-      toggleModal('modal-sprite');
+    // --- MODALE MODIFICA GRUPPO SPIRITELLO & VARIANTI ---
+    window.openGroupEditModal = (categoryName) => {
+      currentEditingCategoryName = categoryName;
+      document.getElementById('group-edit-name').value = categoryName;
+
+      const variants = globalSprites.filter(s => s.name === categoryName);
+      const container = document.getElementById('group-variants-container');
+      container.innerHTML = '';
+
+      variants.forEach(v => {
+        const div = document.createElement('div');
+        div.className = "bg-slate-900 border border-slate-700 p-3 rounded-xl space-y-2 relative";
+        div.dataset.id = v.id;
+
+        div.innerHTML = `
+          <div class="flex justify-between items-center">
+            <span class="text-[10px] text-purple-400 font-bold uppercase">ID: ${v.id}</span>
+            <button onclick="removeGroupVariantRow('${v.id}')" class="text-red-400 hover:text-red-300 p-1" title="Cancella variante">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[10px] text-slate-400 mb-0.5">Nome Variante</label>
+              <input type="text" class="variant-input-name w-full bg-slate-800 border border-slate-700 rounded p-1.5 text-xs text-white" value="${v.variant}">
+            </div>
+            <div>
+              <label class="block text-[10px] text-slate-400 mb-0.5">URL Immagine</label>
+              <input type="text" class="variant-input-image w-full bg-slate-800 border border-slate-700 rounded p-1.5 text-xs text-white" value="${v.image}">
+            </div>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+
+      lucide.createIcons();
+      toggleModal('modal-group-edit');
     };
 
-    window.openEditModal = (id) => {
-      const sprite = globalSprites.find(s => s.id === id);
-      if (!sprite) return;
-      document.getElementById('modal-sprite-title').innerText = "Modifica Spiritello";
-      document.getElementById('sprite-edit-id').value = sprite.id;
-      document.getElementById('sprite-name').value = sprite.name;
-      document.getElementById('sprite-variant').value = sprite.variant;
-      document.getElementById('sprite-image').value = sprite.image;
-      document.getElementById('btn-delete-sprite').classList.remove('hidden');
-      toggleModal('modal-sprite');
+    window.removeGroupVariantRow = (spriteId) => {
+      const row = document.querySelector(`#group-variants-container [data-id="${spriteId}"]`);
+      if (row) row.remove();
     };
 
-    window.saveSprite = async (e) => {
-      e.preventDefault();
-      if (!isOwner) return alert("Solo l'owner può modificare il catalogo!");
+    window.saveGroupEdit = async () => {
+      if (!isOwner) return;
+      const newCategoryName = document.getElementById('group-edit-name').value.trim();
+      if (!newCategoryName) return alert("Il nome dello spiritello non può essere vuoto!");
 
-      const editId = document.getElementById('sprite-edit-id').value;
-      const name = document.getElementById('sprite-name').value.trim();
-      const variant = document.getElementById('sprite-variant').value.trim() || "-";
-      const image = document.getElementById('sprite-image').value.trim();
+      const rows = document.querySelectorAll('#group-variants-container > div');
+      const updatedVariantIds = [];
 
-      if (editId) {
-        const index = globalSprites.findIndex(s => s.id === editId);
+      rows.forEach(row => {
+        const id = row.dataset.id;
+        const variantName = row.querySelector('.variant-input-name').value.trim() || "-";
+        const variantImg = row.querySelector('.variant-input-image').value.trim();
+
+        updatedVariantIds.push(id);
+
+        const index = globalSprites.findIndex(s => s.id === id);
         if (index !== -1) {
-          globalSprites[index] = { id: editId, name, variant, image };
+          globalSprites[index].name = newCategoryName;
+          globalSprites[index].variant = variantName;
+          globalSprites[index].image = variantImg;
         }
-      } else {
-        const newId = 'sprite_' + Date.now() + '_' + Math.random().toString(36).substring(2, 5);
-        globalSprites.push({ id: newId, name, variant, image });
+      });
+
+      // Rimuove eventuali varianti eliminate nella modale
+      globalSprites = globalSprites.filter(s => {
+        if (s.name === currentEditingCategoryName && !updatedVariantIds.includes(s.id)) {
+          return false;
+        }
+        return true;
+      });
+
+      await saveCatalogToFirebase(globalSprites);
+      toggleModal('modal-group-edit');
+    };
+
+    // --- CANCELLAZIONE VELOCE SINGOLA VARIANTE ---
+    window.quickDeleteVariant = async (spriteId, event) => {
+      if (event) event.stopPropagation();
+      if (!isOwner) return;
+
+      if (confirm("Sei sicuro di voler eliminare rapidamente questa variante?")) {
+        globalSprites = globalSprites.filter(s => s.id !== spriteId);
+        await saveCatalogToFirebase(globalSprites);
       }
+    };
+
+    // --- MODALE AGGIUNGI NUOVO SPIRITELLO ---
+    window.openAddModal = () => {
+      document.getElementById('add-sprite-name').value = "";
+      document.getElementById('add-sprite-variant').value = "";
+      document.getElementById('add-sprite-image').value = "";
+      toggleModal('modal-sprite');
+    };
+
+    window.saveNewSprite = async (e) => {
+      e.preventDefault();
+      if (!isOwner) return alert("Solo l'owner può aggiungere elementi!");
+
+      const name = document.getElementById('add-sprite-name').value.trim();
+      const variant = document.getElementById('add-sprite-variant').value.trim() || "-";
+      const image = document.getElementById('add-sprite-image').value.trim();
+
+      const newId = 'sprite_' + Date.now() + '_' + Math.random().toString(36).substring(2, 5);
+      globalSprites.push({ id: newId, name, variant, image });
 
       await saveCatalogToFirebase(globalSprites);
       toggleModal('modal-sprite');
     };
 
-    window.deleteSprite = async () => {
-      if (!isOwner) return;
-      const editId = document.getElementById('sprite-edit-id').value;
-      if (!editId) return;
-
-      if (confirm("Sei sicuro di voler eliminare questo spiritello dal catalogo?")) {
-        globalSprites = globalSprites.filter(s => s.id !== editId);
-        await saveCatalogToFirebase(globalSprites);
-        toggleModal('modal-sprite');
-      }
-    };
-
-    // --- NUOVA GESTIONE IMPORT / EXPORT CSV (7 COLONNE: Nome, Link, Var1, Var2, Var3, Var4, Var5) ---
+    // --- GESTIONE IMPORT / EXPORT CSV ---
     window.importCSV = () => {
       if (!isOwner) return alert("Solo l'owner può importare il CSV!");
       const fileInput = document.getElementById('csv-file-input');
@@ -487,7 +567,6 @@
         lines.forEach((line, lineIdx) => {
           if (!line.trim()) return;
           
-          // Regex per gestire correttamente i valori separati da virgola anche se racchiusi tra virgolette
           const parts = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || line.split(',');
           const cleanParts = parts.map(p => p.replace(/^"|"$/g, '').trim());
 
@@ -495,10 +574,8 @@
             const name = cleanParts[0] || "-";
             const image = cleanParts[1] || "-";
 
-            // Salta l'eventuale riga di intestazione del CSV
             if (lineIdx === 0 && name.toLowerCase() === 'nome') return;
 
-            // Legge le varianti dalle colonne 2 a 6 (max 5 varianti)
             const variants = [];
             for (let i = 2; i <= 6; i++) {
               if (cleanParts[i] && cleanParts[i] !== "-" && cleanParts[i] !== "") {
@@ -506,7 +583,6 @@
               }
             }
 
-            // Se nessuna variante è definita o c'è solo "-", crea un elemento con variante "-"
             if (variants.length === 0) {
               newCatalog.push({
                 id: 'sprite_' + lineIdx + '_0_' + Date.now(),
@@ -515,7 +591,6 @@
                 variant: '-'
               });
             } else {
-              // Crea uno spiritello separato per ogni variante specificata
               variants.forEach((vName, vIdx) => {
                 newCatalog.push({
                   id: 'sprite_' + lineIdx + '_' + vIdx + '_' + Date.now(),
@@ -545,7 +620,6 @@
         return;
       }
 
-      // Raggruppa le varianti per ogni Nome + Immagine
       const grouped = {};
       globalSprites.forEach(s => {
         const key = `${s.name}|||${s.image}`;
@@ -697,13 +771,12 @@
       if (event && event.target.closest('.no-cycle')) return;
       if (!currentUser) return alert("Effettua prima il login per salvare la tua collezione personale!");
       if (compareMode) return;
-    
+
       const currentState = userStates[spriteId] || 0;
       const newState = (currentState + 1) % 3;
       
-      // Assegna sempre lo stato espresso come numero (0 = Oscurato, 1 = Posseduto, 2 = Incoronato)
       userStates[spriteId] = newState;
-    
+
       saveUserData();
       renderSprites();
     };
@@ -744,17 +817,31 @@
         const groupEl = document.createElement('div');
         groupEl.className = "bg-slate-800/40 rounded-2xl p-5 border border-slate-700/60";
 
+        let editCategoryBtn = "";
+        if (isOwner && !compareMode) {
+          editCategoryBtn = `
+            <button onclick="openGroupEditModal('${categoryName}')" class="p-1.5 bg-slate-800 hover:bg-purple-600 rounded-lg text-slate-300 hover:text-white transition" title="Modifica Spiritello e Varianti">
+              <i data-lucide="pencil" class="w-4 h-4"></i>
+            </button>
+          `;
+        }
+
         let cardsHTML = '';
         variants.forEach(sprite => {
           const myState = userStates[sprite.id] || 0;
           if (myState > 0) totalUnlocked++;
 
-          let stateClass = "sprite-locked";
+          let cardBorderClass = "border-slate-800";
+          let imgStateClass = "sprite-locked-img";
           let crownIcon = "";
           
-          if (myState === 1) stateClass = "sprite-owned border-purple-500";
+          if (myState === 1) {
+            cardBorderClass = "border-purple-500";
+            imgStateClass = "sprite-owned";
+          }
           if (myState === 2) {
-            stateClass = "sprite-crowned border-amber-400";
+            cardBorderClass = "border-amber-400 sprite-crowned";
+            imgStateClass = "sprite-crowned";
             crownIcon = `<div class="absolute -top-3 -right-2 bg-amber-500 text-slate-900 p-1 rounded-full shadow-lg z-10"><i data-lucide="crown" class="w-4 h-4 fill-slate-900"></i></div>`;
           }
 
@@ -769,7 +856,7 @@
           let friendsWhoOwnBadge = "";
           if (friendsWhoOwn.length > 0) {
             friendsWhoOwnBadge = `
-              <div class="mt-2 text-[10px] bg-purple-900/90 text-purple-200 border border-purple-500/80 px-2 py-1 rounded-md text-center font-semibold w-full truncate shadow-md [filter:none] [opacity:1]" title="Amici che lo possiedono: ${friendsWhoOwn.join(', ')}">
+              <div class="mt-2 text-[10px] bg-purple-900/90 text-purple-200 border border-purple-500/80 px-2 py-1 rounded-md text-center font-semibold w-full truncate shadow-md" title="Amici che lo possiedono: ${friendsWhoOwn.join(', ')}">
                 <i data-lucide="users" class="w-3 h-3 inline mr-0.5 text-purple-300"></i> ${friendsWhoOwn.join(', ')}
               </div>
             `;
@@ -784,31 +871,31 @@
             if (fState === 2) { fColor = "bg-amber-500/20 text-amber-400 border-amber-500/30"; fText = "👑 Incoronato"; }
 
             friendCompareBadge = `
-              <div class="mt-1 text-[10px] px-2 py-0.5 rounded border text-center font-medium [filter:none] [opacity:1] ${fColor}">
+              <div class="mt-1 text-[10px] px-2 py-0.5 rounded border text-center font-medium ${fColor}">
                 ${friendName}: ${fText}
               </div>
             `;
           }
 
-          let editBtn = "";
+          let quickDeleteBtn = "";
           if (isOwner && !compareMode) {
-            editBtn = `
-              <button onclick="openEditModal('${sprite.id}')" class="no-cycle absolute top-2 left-2 p-1 bg-slate-800/80 hover:bg-purple-600 rounded-lg text-slate-300 hover:text-white transition z-10" title="Modifica spiritello">
-                <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+            quickDeleteBtn = `
+              <button onclick="quickDeleteVariant('${sprite.id}', event)" class="no-cycle absolute top-2 left-2 p-1 bg-slate-800/80 hover:bg-red-600 rounded-lg text-red-400 hover:text-white transition z-10" title="Eliminazione rapida variante">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
               </button>
             `;
           }
 
           cardsHTML += `
-            <div onclick="cycleState('${sprite.id}', event)" class="relative group cursor-pointer bg-slate-900 border-2 rounded-xl p-3 flex flex-col items-center justify-between transition-all duration-200 select-none ${stateClass}">
+            <div onclick="cycleState('${sprite.id}', event)" class="relative group cursor-pointer bg-slate-900 border-2 rounded-xl p-3 flex flex-col items-center justify-between transition-all duration-200 select-none ${cardBorderClass}">
               ${crownIcon}
-              ${editBtn}
+              ${quickDeleteBtn}
               <div class="w-full flex flex-col items-center">
                 <div class="w-20 h-20 mb-2 relative flex items-center justify-center">
-                  <img src="${sprite.image}" alt="${sprite.name}" class="max-h-full max-w-full object-contain rounded-md">
+                  <img src="${sprite.image}" alt="${sprite.name}" class="max-h-full max-w-full object-contain rounded-md ${imgStateClass}">
                 </div>
-                <span class="sprite-name font-bold text-xs text-center text-slate-200">${sprite.name}</span>
-                <span class="text-[10px] text-purple-400 font-medium text-center">${sprite.variant}</span>
+                <span class="sprite-name font-bold text-xs text-center text-slate-200 ${myState === 0 ? 'blur-[3px]' : ''}">${sprite.name}</span>
+                <span class="text-[10px] text-purple-400 font-bold text-center mt-0.5">${sprite.variant}</span>
               </div>
               <div class="w-full">
                 ${friendsWhoOwnBadge}
@@ -819,9 +906,12 @@
         });
 
         groupEl.innerHTML = `
-          <h2 class="text-md font-bold mb-4 text-purple-300 flex items-center gap-2">
-            <i data-lucide="sparkles" class="w-4 h-4"></i> ${categoryName}
-          </h2>
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-md font-bold text-purple-300 flex items-center gap-2">
+              <i data-lucide="sparkles" class="w-4 h-4"></i> ${categoryName}
+            </h2>
+            ${editCategoryBtn}
+          </div>
           <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             ${cardsHTML}
           </div>
