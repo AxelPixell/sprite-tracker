@@ -172,25 +172,28 @@
     </div>
   </div>
 
-  <!-- Firebase App SDK -->
-  <!-- Firebase App SDK -->
+ <!-- Firebase App SDK -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
   import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
   import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-  import firebaseConfig from './config.js';
 
   const OWNER_EMAIL = "pxyspam@gmail.com";
 
-  // Inizializzazione Firebase
-  let app, auth, db;
-  const isFirebaseConfigured = firebaseConfig && firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY";
+  // Configurazione Firebase integrata
+  const firebaseConfig = {
+    apiKey: "AIzaSyBhqbA-WP7_ZTBuAz71Ao8E0aoLG1LhaeE",
+    authDomain: "fortnite-sprite-tracker-c6c12.firebaseapp.com",
+    projectId: "fortnite-sprite-tracker-c6c12",
+    storageBucket: "fortnite-sprite-tracker-c6c12.firebasestorage.app",
+    messagingSenderId: "927459336875",
+    appId: "1:927459336875:web:a048f3f58d7ba95fd54dee"
+  };
 
-  if (isFirebaseConfigured) {
-    app = initializeApp(firebaseConfig);
-    auth = getAuth(app);
-    db = getFirestore(app);
-  }
+  // Inizializzazione Firebase
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
 
   let currentUser = null;
   let isOwner = false;
@@ -198,7 +201,6 @@
   let globalSprites = JSON.parse(localStorage.getItem('fortnite_sprites_global')) || [];
   let userStates = JSON.parse(localStorage.getItem('fortnite_user_states')) || {};
   
-  // Lista UID Amici & Mappa con le loro collezioni { uid: { displayName, states } }
   let myFriendsUids = [];
   let friendsDataMap = {};
 
@@ -214,72 +216,68 @@
   };
 
   window.loginWithGoogle = async () => {
-    if(!isFirebaseConfigured) return alert("Configura le chiavi Firebase per abilitare il Login!");
     const provider = new GoogleAuthProvider();
-    try { 
-      await signInWithPopup(auth, provider); 
-    } catch (err) { 
-      console.error("Errore durante il login:", err); 
-      alert("Errore durante l'autenticazione con Google.");
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (err) {
+      console.error("Errore Login:", err);
+      alert("Errore durante l'autenticazione con Google: " + err.message);
     }
   };
 
   window.logout = () => { if(auth) signOut(auth); };
 
-  if (isFirebaseConfigured) {
-    // 1. Carica catalogo globale
-    onSnapshot(doc(db, "global", "sprites_catalog"), (docSnap) => {
-      if (docSnap.exists()) {
-        globalSprites = docSnap.data().sprites || [];
-        localStorage.setItem('fortnite_sprites_global', JSON.stringify(globalSprites));
-        renderSprites();
-      }
-    });
+  // 1. Carica catalogo globale
+  onSnapshot(doc(db, "global", "sprites_catalog"), (docSnap) => {
+    if (docSnap.exists()) {
+      globalSprites = docSnap.data().sprites || [];
+      localStorage.setItem('fortnite_sprites_global', JSON.stringify(globalSprites));
+      renderSprites();
+    }
+  });
 
-    // 2. Ascolto Stato Auth
-    onAuthStateChanged(auth, (user) => {
-      currentUser = user;
-      const btnLogin = document.getElementById('btn-login');
-      const userProfile = document.getElementById('user-profile');
-      const myUserIdInput = document.getElementById('my-user-id');
-      const btnAdd = document.getElementById('btn-add-sprite');
-      const btnCsv = document.getElementById('btn-csv-modal');
+  // 2. Ascolto Stato Auth
+  onAuthStateChanged(auth, (user) => {
+    currentUser = user;
+    const btnLogin = document.getElementById('btn-login');
+    const userProfile = document.getElementById('user-profile');
+    const myUserIdInput = document.getElementById('my-user-id');
+    const btnAdd = document.getElementById('btn-add-sprite');
+    const btnCsv = document.getElementById('btn-csv-modal');
 
-      if (user) {
-        isOwner = (user.email === OWNER_EMAIL);
-        btnLogin.classList.add('hidden');
-        userProfile.classList.remove('hidden');
-        document.getElementById('user-avatar').src = user.photoURL;
-        myUserIdInput.value = user.uid;
+    if (user) {
+      isOwner = (user.email === OWNER_EMAIL);
+      btnLogin.classList.add('hidden');
+      userProfile.classList.remove('hidden');
+      document.getElementById('user-avatar').src = user.photoURL;
+      myUserIdInput.value = user.uid;
 
-        if (isOwner) {
-          if (btnAdd) btnAdd.classList.remove('hidden');
-          if (btnCsv) btnCsv.classList.remove('hidden');
-        } else {
-          if (btnAdd) btnAdd.classList.add('hidden');
-          if (btnCsv) btnCsv.classList.add('hidden');
-        }
-
-        syncUserData();
+      if (isOwner) {
+        if (btnAdd) btnAdd.classList.remove('hidden');
+        if (btnCsv) btnCsv.classList.remove('hidden');
       } else {
-        isOwner = false;
-        userStates = {};
-        myFriendsUids = [];
-        friendsDataMap = {};
-        btnLogin.classList.remove('hidden');
-        userProfile.classList.add('hidden');
         if (btnAdd) btnAdd.classList.add('hidden');
         if (btnCsv) btnCsv.classList.add('hidden');
-        myUserIdInput.value = "Effettua il login per vedere l'ID";
-        renderFriendsList();
-        renderSprites();
       }
-    });
-  }
 
-  // Sincronizza stato personale e lista amici
+      syncUserData();
+    } else {
+      isOwner = false;
+      userStates = {};
+      myFriendsUids = [];
+      friendsDataMap = {};
+      btnLogin.classList.remove('hidden');
+      userProfile.classList.add('hidden');
+      if (btnAdd) btnAdd.classList.add('hidden');
+      if (btnCsv) btnCsv.classList.add('hidden');
+      myUserIdInput.value = "Effettua il login per vedere l'ID";
+      renderFriendsList();
+      renderSprites();
+    }
+  });
+
   function syncUserData() {
-    if (!currentUser || !isFirebaseConfigured) return;
+    if (!currentUser) return;
     onSnapshot(doc(db, "users", currentUser.uid), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -317,7 +315,7 @@
   }
 
   function saveUserData() {
-    if (currentUser && isFirebaseConfigured) {
+    if (currentUser) {
       setDoc(doc(db, "users", currentUser.uid), {
         displayName: currentUser.displayName || "Giocatore",
         states: userStates,
