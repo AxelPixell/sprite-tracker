@@ -72,3 +72,10 @@ Cancellazione Globale (Owner):
 Cosa è stato modificato:
 - Controllo dello Stato: fData.states[sprite.id] === 1 è stato sostituito con fState === 1 || fState === 2 per includere entrambi gli stati di possesso.   
 - Override dei Filtri CSS: Sono state aggiunte le classi Tailwind [filter:none] e [opacity:1] al contenitore del badge degli amici. In questo modo Tailwind annulla l'effetto di grigio/oscuramento ereditato da .sprite-locked, rendendo la lista degli amici brillante e nitida anche quando la scheda dello spiritello è bloccata. 
+
+-------------------------------------------------------------------------
+
+Modifiche Implementate
+- Pulsante "Modifica Spiritello" (Owner) accanto al Nome del Gruppo:Aggiunto un pulsante con icona a matita accanto al nome di ogni Spiritello/Categoria.   Cliccandolo si apre un riquadro (modale) in cui puoi cambiare il Nome dello Spiritello ed modificare/eliminare le singole varianti (nome e URL immagine per ciascuna).  
+- Pulsante di Cancellazione Veloce sulla Singola Scheda:Sostituito il vecchio tasto di modifica presente sulle singole schede con un tasto di eliminazione rapida (icona cestino rosso) che rimuove immediatamente quella variante specifica previa conferma.   
+- Visibilità del Nome della Variante:Il testo della variante (text-purple-400) è stato rimosso dall'effetto filtro/blur dello stato oscurato, rendendolo chiaro e ben leggibile anche quando la scheda non è posseduta (stato 0).
