@@ -465,125 +465,128 @@
   };
 
   window.renderSprites = () => {
-    const container = document.getElementById('sprites-container');
-    const searchQuery = document.getElementById('search-input').value.toLowerCase();
-    container.innerHTML = '';
+  const container = document.getElementById('sprites-container');
+  const searchQuery = document.getElementById('search-input').value.toLowerCase();
+  container.innerHTML = '';
 
-    const grouped = {};
-    globalSprites.forEach(sprite => {
-      if (sprite.name.toLowerCase().includes(searchQuery) || sprite.variant.toLowerCase().includes(searchQuery)) {
-        if (!grouped[sprite.name]) grouped[sprite.name] = [];
-        grouped[sprite.name].push(sprite);
-      }
-    });
-
-    let totalUnlocked = 0;
-    let totalCount = globalSprites.length;
-
-    if (Object.keys(grouped).length === 0) {
-      container.innerHTML = `
-        <div class="text-center py-12 text-slate-500">
-          <i data-lucide="ghost" class="w-12 h-12 mx-auto mb-2 opacity-50"></i>
-          <p>Nessun spiritello presente nel catalogo.</p>
-        </div>
-      `;
-      lucide.createIcons();
-      return;
+  const grouped = {};
+  globalSprites.forEach(sprite => {
+    if (sprite.name.toLowerCase().includes(searchQuery) || sprite.variant.toLowerCase().includes(searchQuery)) {
+      if (!grouped[sprite.name]) grouped[sprite.name] = [];
+      grouped[sprite.name].push(sprite);
     }
+  });
 
-    for (const [categoryName, variants] of Object.entries(grouped)) {
-      const groupEl = document.createElement('div');
-      groupEl.className = "bg-slate-800/40 rounded-2xl p-5 border border-slate-700/60";
+  let totalUnlocked = 0;
+  let totalCount = globalSprites.length;
 
-      let cardsHTML = '';
-      variants.forEach(sprite => {
-        const myState = userStates[sprite.id] || 0;
-        if (myState > 0) totalUnlocked++;
+  if (Object.keys(grouped).length === 0) {
+    container.innerHTML = `
+      <div class="text-center py-12 text-slate-500">
+        <i data-lucide="ghost" class="w-12 h-12 mx-auto mb-2 opacity-50"></i>
+        <p>Nessun spiritello presente nel catalogo.</p>
+      </div>
+    `;
+    lucide.createIcons();
+    return;
+  }
 
-        let stateClass = "sprite-locked";
-        let crownIcon = "";
-        
-        if (myState === 1) stateClass = "sprite-owned border-purple-500";
-        if (myState === 2) {
-          stateClass = "sprite-crowned border-amber-400";
-          crownIcon = `<div class="absolute -top-3 -right-2 bg-amber-500 text-slate-900 p-1 rounded-full shadow-lg z-10"><i data-lucide="crown" class="w-4 h-4 fill-slate-900"></i></div>`;
+  for (const [categoryName, variants] of Object.entries(grouped)) {
+    const groupEl = document.createElement('div');
+    groupEl.className = "bg-slate-800/40 rounded-2xl p-5 border border-slate-700/60";
+
+    let cardsHTML = '';
+    variants.forEach(sprite => {
+      const myState = userStates[sprite.id] || 0;
+      if (myState > 0) totalUnlocked++;
+
+      let stateClass = "sprite-locked";
+      let crownIcon = "";
+      
+      if (myState === 1) stateClass = "sprite-owned border-purple-500";
+      if (myState === 2) {
+        stateClass = "sprite-crowned border-amber-400";
+        crownIcon = `<div class="absolute -top-3 -right-2 bg-amber-500 text-slate-900 p-1 rounded-full shadow-lg z-10"><i data-lucide="crown" class="w-4 h-4 fill-slate-900"></i></div>`;
+      }
+
+      // CORREZIONE 1: Include sia lo Stato 1 (Posseduto) che lo Stato 2 (Incoronato)
+      const friendsWhoOwn = [];
+      Object.entries(friendsDataMap).forEach(([fUid, fData]) => {
+        const fState = fData.states ? fData.states[sprite.id] : 0;
+        if (fState === 1 || fState === 2) {
+          friendsWhoOwn.push(fData.displayName || "Amico");
         }
-
-        const friendsWhoOwn = [];
-        Object.entries(friendsDataMap).forEach(([fUid, fData]) => {
-          if (fData.states && fData.states[sprite.id] === 1) {
-            friendsWhoOwn.push(fData.displayName || "Amico");
-          }
-        });
-
-        let friendsWhoOwnBadge = "";
-        if (friendsWhoOwn.length > 0) {
-          friendsWhoOwnBadge = `
-            <div class="mt-2 text-[10px] bg-purple-950/80 text-purple-300 border border-purple-700/60 px-2 py-0.5 rounded-md text-center font-medium w-full truncate" title="Amici che lo possiedono: ${friendsWhoOwn.join(', ')}">
-              <i data-lucide="users" class="w-3 h-3 inline mr-0.5"></i> ${friendsWhoOwn.join(', ')}
-            </div>
-          `;
-        }
-
-        let friendCompareBadge = "";
-        if (compareMode && friendStates) {
-          const fState = friendStates[sprite.id] || 0;
-          let fColor = "bg-red-500/20 text-red-400 border-red-500/30";
-          let fText = "Manca";
-          if (fState === 1) { fColor = "bg-green-500/20 text-green-400 border-green-500/30"; fText = "Posseduto"; }
-          if (fState === 2) { fColor = "bg-amber-500/20 text-amber-400 border-amber-500/30"; fText = "👑 Incoronato"; }
-
-          friendCompareBadge = `
-            <div class="mt-1 text-[10px] px-2 py-0.5 rounded border text-center font-medium ${fColor}">
-              ${friendName}: ${fText}
-            </div>
-          `;
-        }
-
-        let editBtn = "";
-        if (isOwner && !compareMode) {
-          editBtn = `
-            <button onclick="openEditModal('${sprite.id}')" class="no-cycle absolute top-2 left-2 p-1 bg-slate-800/80 hover:bg-purple-600 rounded-lg text-slate-300 hover:text-white transition z-10" title="Modifica spiritello">
-              <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
-            </button>
-          `;
-        }
-
-        cardsHTML += `
-          <div onclick="cycleState('${sprite.id}', event)" class="relative group cursor-pointer bg-slate-900 border-2 rounded-xl p-3 flex flex-col items-center justify-between transition-all duration-200 select-none ${stateClass}">
-            ${crownIcon}
-            ${editBtn}
-            <div class="w-full flex flex-col items-center">
-              <div class="w-20 h-20 mb-2 relative flex items-center justify-center">
-                <img src="${sprite.image}" alt="${sprite.name}" class="max-h-full max-w-full object-contain rounded-md">
-              </div>
-              <span class="sprite-name font-bold text-xs text-center text-slate-200">${sprite.name}</span>
-              <span class="text-[10px] text-purple-400 font-medium text-center">${sprite.variant}</span>
-            </div>
-            <div class="w-full">
-              ${friendsWhoOwnBadge}
-              ${friendCompareBadge}
-            </div>
-          </div>
-        `;
       });
 
-      groupEl.innerHTML = `
-        <h2 class="text-md font-bold mb-4 text-purple-300 flex items-center gap-2">
-          <i data-lucide="sparkles" class="w-4 h-4"></i> ${categoryName}
-        </h2>
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          ${cardsHTML}
+      // CORREZIONE 2: Aggiunta classe `[filter:none] [opacity:1]` per far rimanere il badge sempre ben visibile e nitido
+      let friendsWhoOwnBadge = "";
+      if (friendsWhoOwn.length > 0) {
+        friendsWhoOwnBadge = `
+          <div class="mt-2 text-[10px] bg-purple-900/90 text-purple-200 border border-purple-500/80 px-2 py-1 rounded-md text-center font-semibold w-full truncate shadow-md [filter:none] [opacity:1]" title="Amici che lo possiedono: ${friendsWhoOwn.join(', ')}">
+            <i data-lucide="users" class="w-3 h-3 inline mr-0.5 text-purple-300"></i> ${friendsWhoOwn.join(', ')}
+          </div>
+        `;
+      }
+
+      let friendCompareBadge = "";
+      if (compareMode && friendStates) {
+        const fState = friendStates[sprite.id] || 0;
+        let fColor = "bg-red-500/20 text-red-400 border-red-500/30";
+        let fText = "Manca";
+        if (fState === 1) { fColor = "bg-green-500/20 text-green-400 border-green-500/30"; fText = "Posseduto"; }
+        if (fState === 2) { fColor = "bg-amber-500/20 text-amber-400 border-amber-500/30"; fText = "👑 Incoronato"; }
+
+        friendCompareBadge = `
+          <div class="mt-1 text-[10px] px-2 py-0.5 rounded border text-center font-medium [filter:none] [opacity:1] ${fColor}">
+            ${friendName}: ${fText}
+          </div>
+        `;
+      }
+
+      let editBtn = "";
+      if (isOwner && !compareMode) {
+        editBtn = `
+          <button onclick="openEditModal('${sprite.id}')" class="no-cycle absolute top-2 left-2 p-1 bg-slate-800/80 hover:bg-purple-600 rounded-lg text-slate-300 hover:text-white transition z-10" title="Modifica spiritello">
+            <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+          </button>
+        `;
+      }
+
+      cardsHTML += `
+        <div onclick="cycleState('${sprite.id}', event)" class="relative group cursor-pointer bg-slate-900 border-2 rounded-xl p-3 flex flex-col items-center justify-between transition-all duration-200 select-none ${stateClass}">
+          ${crownIcon}
+          ${editBtn}
+          <div class="w-full flex flex-col items-center">
+            <div class="w-20 h-20 mb-2 relative flex items-center justify-center">
+              <img src="${sprite.image}" alt="${sprite.name}" class="max-h-full max-w-full object-contain rounded-md">
+            </div>
+            <span class="sprite-name font-bold text-xs text-center text-slate-200">${sprite.name}</span>
+            <span class="text-[10px] text-purple-400 font-medium text-center">${sprite.variant}</span>
+          </div>
+          <div class="w-full">
+            ${friendsWhoOwnBadge}
+            ${friendCompareBadge}
+          </div>
         </div>
       `;
-      container.appendChild(groupEl);
-    }
+    });
 
-    document.getElementById('stats-unlocked').innerText = totalUnlocked;
-    document.getElementById('stats-total').innerText = totalCount;
+    groupEl.innerHTML = `
+      <h2 class="text-md font-bold mb-4 text-purple-300 flex items-center gap-2">
+        <i data-lucide="sparkles" class="w-4 h-4"></i> ${categoryName}
+      </h2>
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        ${cardsHTML}
+      </div>
+    `;
+    container.appendChild(groupEl);
+  }
 
-    lucide.createIcons();
-  };
+  document.getElementById('stats-unlocked').innerText = totalUnlocked;
+  document.getElementById('stats-total').innerText = totalCount;
+
+  lucide.createIcons();
+};
 
   renderSprites();
 </script>
