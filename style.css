@@ -14,7 +14,9 @@
   --radius:14px;
   --font:system-ui,"Segoe UI",Roboto,sans-serif;
   --avatar-size:56px;
-  --obscured-filter:grayscale(1) brightness(.35);
+  --obscured-filter:grayscale(1) brightness(.5);   /* bollino non posseduto */
+  --obscured-bg:#0b0614;                           /* sfondo variante non posseduta */
+  --obscured-border:#2a2040;
 }
 /* ====================================================================== */
 
@@ -42,7 +44,11 @@ input[type=color]{padding:0;width:38px;height:34px;border:0;background:none}
 .tile{display:flex;align-items:center;gap:7px;padding:8px;border-radius:10px;border:2px solid var(--card-border);background:#150d26}
 .dot{width:20px;height:20px;border-radius:50%;border:2px solid var(--muted);display:grid;place-items:center;font-size:.7rem;flex:none}
 .vname{font-weight:700;font-size:.9rem;overflow-wrap:anywhere}
-.s0 .tile{filter:var(--obscured-filter);opacity:.65}
+/* Non posseduto: si oscura il bollino e lo sfondo, il nome colorato resta ben leggibile */
+.s0 .tile{background:var(--obscured-bg);border-color:var(--obscured-border)}
+.s0 .dot{filter:var(--obscured-filter);opacity:.6}
+.grip{cursor:grab;touch-action:none;user-select:none;font-size:1.4rem;padding:0 8px;color:var(--muted)}
+.vrow.drag{opacity:.6;outline:2px dashed var(--accent);border-radius:8px}
 .s1 .tile{border-color:var(--owned)}
 .s1 .dot{background:var(--owned);border-color:var(--owned)}
 .s1 .dot::after{content:"✓";color:#000}
