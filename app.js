@@ -17,25 +17,26 @@ const ADMIN_EMAILS = ["pxyspam@gmail.com"];
 const DEFAULT_VARIANT_COLOR = "#ffd54a";
 /* ================================================================== */
 
+
 const app = initializeApp(FIREBASE_CONFIG);
 const auth = getAuth(app), db = getFirestore(app);
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const slug = s => String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
 const STATES = ["Non posseduto","Posseduto","Incoronato"];
-
+ 
 let user = null, isAdmin = false;
 let sprites = [], variants = [];      // database globale
 let me = {}, friends = {}, friendUnsubs = {};
 let filter = "all", pinned = new Set();
-
+ 
 function toast(t){const e=$("#toast");e.textContent=t;e.classList.add("on");clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove("on"),3000)}
 const login = () => signInWithPopup(auth,new GoogleAuthProvider()).catch(e=>toast("Login fallito: "+e.code));
-
+ 
 /* ---------- Dati globali (visibili a tutti) ---------- */
 onSnapshot(collection(db,"sprites"), s => { sprites = s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.name.localeCompare(b.name)); render(); }, e=>toast("Errore lettura: "+e.code));
 onSnapshot(doc(db,"config","variants"), s => { variants = s.exists() ? s.data().list : []; render(); });
-
+ 
 /* ---------- Auth e dati utente ---------- */
 onAuthStateChanged(auth, async u => {
   user = u; isAdmin = !!u && ADMIN_EMAILS.map(e=>e.toLowerCase()).includes((u.email||"").toLowerCase());
@@ -51,13 +52,13 @@ function syncFriends(){
   for (const id of Object.keys(friendUnsubs)) if(!ids.includes(id)){friendUnsubs[id]();delete friendUnsubs[id];delete friends[id];}
   for (const id of ids) if(!friendUnsubs[id]) friendUnsubs[id]=onSnapshot(doc(db,"users",id),s=>{friends[id]=s.data()||{name:"?"};render()},()=>{});
 }
-
+ 
 /* ---------- Rendering ---------- */
 const stateOf = (sid,vk) => (me.states||{})[sid+"__"+vk] || 0;
-function visible(sp){
-  if(!user||filter==="all"||pinned.has(sp.id)) return true;
-  const st=(sp.variants||[]).map(v=>stateOf(sp.id,v));
-  return filter==="owned" ? st.some(x=>x>0) : st.some(x=>x===0);
+// Il filtro agisce sulle singole varianti; quelle appena toccate restano visibili finché non cambi filtro
+function showCell(sid,vk){
+  if(!user||filter==="all"||pinned.has(sid+"__"+vk)) return true;
+  const n=stateOf(sid,vk); return filter==="owned" ? n>0 : n===0;
 }
 function render(){
   $("#auth").innerHTML = user
@@ -69,8 +70,10 @@ function render(){
   if(isAdmin) tb += `<button data-act="newSprite">＋ Spiritello</button><button data-act="variants">🎨 Varianti</button><button data-act="import">⬆ Importa</button><button data-act="export">⬇ Esporta</button>`;
   $("#toolbar").innerHTML = tb; if($("#flt")) $("#flt").value = filter;
   const vmap = Object.fromEntries(variants.map(v=>[v.key,v]));
-  const list = sprites.filter(visible).map(sp => {
-    const cells = variants.filter(v=>(sp.variants||[]).includes(v.key)).map(v => {
+  const list = sprites.map(sp => {
+    const vs = variants.filter(v=>(sp.variants||[]).includes(v.key) && showCell(sp.id,v.key));
+    if(user && filter!=="all" && !vs.length) return "";
+    const cells = vs.map(v => {
       const n = stateOf(sp.id,v.key);
       const who = Object.values(friends).filter(f=>((f.states||{})[sp.id+"__"+v.key]||0)>0).map(f=>esc(f.name)).join(", ");
       return `<div class="cell s${n}" data-s="${esc(sp.id)}" data-v="${esc(v.key)}" title="${STATES[n]}">
@@ -85,7 +88,7 @@ function render(){
   }).join("");
   $("#list").innerHTML = list || '<p class="muted">Nessuno spiritello da mostrare.</p>';
 }
-
+ 
 /* ---------- Eventi ---------- */
 document.addEventListener("change", e => { if(e.target.id==="flt"){filter=e.target.value;pinned.clear();render();} });
 document.addEventListener("click", async e => {
@@ -93,7 +96,7 @@ document.addEventListener("click", async e => {
   if(cell && !e.target.closest("dialog")){
     if(!user) return toast("Accedi con Google per segnare i tuoi spiritelli");
     const {s,v}=cell.dataset, n=(stateOf(s,v)+1)%3;
-    pinned.add(s);
+    pinned.add(s+"__"+v);
     await setDoc(doc(db,"users",user.uid),{states:{[s+"__"+v]: n===0?deleteField():n}},{merge:true});
     return;
   }
@@ -104,7 +107,7 @@ document.addEventListener("click", async e => {
     variants:dlgVariants, import:dlgImport, export:dlgExport}[a]||(()=>{}))();
 });
 function dlg(html){const d=$("#dlg");d.innerHTML=html+`<div class="row"><button class="ghost" id="dclose">Chiudi</button></div>`;d.showModal();$("#dclose").onclick=()=>d.close();return d}
-
+ 
 /* ---------- Admin: spiritello ---------- */
 function dlgSprite(sp){
   const d = dlg(`<h3>${sp?"Modifica":"Nuovo"} spiritello</h3>
@@ -119,7 +122,7 @@ function dlgSprite(sp){
     d.close();
   };
 }
-
+ 
 /* ---------- Admin: gestione varianti globali ---------- */
 const saveVariants = l => setDoc(doc(db,"config","variants"),{list:l});
 function dlgVariants(){
@@ -146,7 +149,7 @@ function dlgVariants(){
     d.close(); toast("Variante creata");
   };
 }
-
+ 
 /* ---------- Admin: import / export ---------- */
 function parseText(t){
   const lines=t.replace(/^\uFEFF/,"").split(/\r?\n/).filter(l=>l.trim()); if(!lines.length) return [];
@@ -185,7 +188,7 @@ function dlgExport(){
   };
 }
 function save(blob,name){const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000)}
-
+ 
 /* ---------- Amici ---------- */
 function dlgFriends(){
   const d = dlg(`<h3>Amici</h3><p>Il tuo UID: <code>${esc(user.uid)}</code> <button class="ghost" id="cuid">Copia</button></p>
@@ -199,7 +202,7 @@ function dlgFriends(){
   };
   d.onclick=async e=>{const id=e.target.dataset.rm; if(id){await updateDoc(doc(db,"users",user.uid),{friends:arrayRemove(id)}); d.close();}};
 }
-
+ 
 /* ---------- PDF personale + condivisione ---------- */
 function buildPdf(){
   const pdf=new window.jspdf.jsPDF(); let y=16;
@@ -227,3 +230,4 @@ function dlgPdf(){
     if(t!=="save") toast("PDF salvato: allegalo nella chat");
   };
 }
+
