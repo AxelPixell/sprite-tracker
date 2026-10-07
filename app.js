@@ -127,15 +127,33 @@ function dlgSprite(sp){
 const saveVariants = l => setDoc(doc(db,"config","variants"),{list:l});
 function dlgVariants(){
   const d = dlg(`<h3>Varianti (valgono per tutti gli spiritelli)</h3>
-    ${variants.map((v,i)=>`<div class="row" data-i="${i}"><input type="color" value="${esc(v.color)}"><input value="${esc(v.name)}">
+    <p class="muted">Trascina ⠿ per cambiare l'ordine: vale per tutti gli spiritelli. I dati degli utenti non vengono toccati.</p>
+    ${variants.map(v=>`<div class="row vrow" data-k="${esc(v.key)}"><span class="grip" title="Trascina">⠿</span><input type="color" value="${esc(v.color)}"><input value="${esc(v.name)}">
       <button data-a="save">Salva</button><button class="danger" data-a="del">🗑</button></div>`).join("")}
     <hr><h3>Nuova variante</h3>
     <div class="row"><input type="color" id="nc" value="${DEFAULT_VARIANT_COLOR}"><input id="nn" placeholder="Nome">
     <label class="chk"><input type="checkbox" id="nall" checked>aggiungi a tutti gli spiritelli</label><button id="nadd">Crea</button></div>`);
+  // Riordino a trascinamento (mouse e touch). Cambia solo l'ordine della lista globale: le chiavi restano uguali, quindi gli stati degli utenti non cambiano.
+  d.onpointerdown = e => {
+    const g = e.target.closest(".grip"); if(!g) return;
+    const row = g.closest(".vrow"); row.classList.add("drag"); g.setPointerCapture(e.pointerId);
+    const mv = ev => {
+      const t = document.elementFromPoint(ev.clientX,ev.clientY)?.closest(".vrow");
+      if(t && t!==row){ const b=t.getBoundingClientRect(); t.parentNode.insertBefore(row, ev.clientY < b.top+b.height/2 ? t : t.nextSibling); }
+    };
+    const up = async () => {
+      g.removeEventListener("pointermove",mv); g.removeEventListener("pointerup",up); g.removeEventListener("pointercancel",up);
+      row.classList.remove("drag");
+      const l = [...d.querySelectorAll(".vrow")].map(x=>variants.find(v=>v.key===x.dataset.k)).filter(Boolean);
+      if(l.length===variants.length && l.some((v,i)=>v.key!==variants[i].key)){ await saveVariants(l); toast("Ordine salvato"); }
+    };
+    g.addEventListener("pointermove",mv); g.addEventListener("pointerup",up); g.addEventListener("pointercancel",up);
+  };
   d.onclick = async e => {
-    const r = e.target.closest("[data-i]"), a = e.target.dataset.a; if(!r||!a) return;
-    const i=+r.dataset.i, l=variants.map(v=>({...v}));
-    if(a==="save"){ l[i].color=r.children[0].value; l[i].name=r.children[1].value.trim()||l[i].name; await saveVariants(l); toast("Salvato"); }
+    const r = e.target.closest("[data-k]"), a = e.target.dataset.a; if(!r||!a) return;
+    const i = variants.findIndex(v=>v.key===r.dataset.k); if(i<0) return;
+    const l=variants.map(v=>({...v}));
+    if(a==="save"){ l[i].color=r.querySelector("input[type=color]").value; l[i].name=r.querySelector("input:not([type=color])").value.trim()||l[i].name; await saveVariants(l); toast("Salvato"); }
     if(a==="del" && confirm(`Eliminare la variante ${l[i].name} da tutti gli spiritelli?`)){
       const key=l[i].key; l.splice(i,1); await saveVariants(l);
       const b=writeBatch(db); sprites.filter(s=>(s.variants||[]).includes(key)).forEach(s=>b.update(doc(db,"sprites",s.id),{variants:s.variants.filter(x=>x!==key)})); await b.commit(); d.close();
@@ -230,4 +248,5 @@ function dlgPdf(){
     if(t!=="save") toast("PDF salvato: allegalo nella chat");
   };
 }
+
 
