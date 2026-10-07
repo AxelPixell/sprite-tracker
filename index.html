@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Spiritelli Tracker</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>✨ Spiritelli Tracker</h1>
+  <div id="auth"></div>
+</header>
+<main>
+  <div id="toolbar"></div>
+  <div id="list"><p class="muted">Caricamento…</p></div>
+</main>
+<dialog id="dlg"></dialog>
+<div id="toast"></div>
+
+<!-- Librerie esterne: import/export (SheetJS) e PDF (jsPDF) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
