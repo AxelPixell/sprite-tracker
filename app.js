@@ -4,7 +4,7 @@ import {getFirestore,collection,doc,onSnapshot,setDoc,getDoc,updateDoc,deleteDoc
 
 /* ================= CONFIGURAZIONE (da modificare) ================= */
 // 1) Incolla qui le chiavi: Console Firebase > Impostazioni progetto > Le tue app > App web > Configurazione SDK
-const firebaseConfig = {
+const FIREBASE_CONFIG = {
   apiKey: "AIzaSyBhqbA-WP7_ZTBuAz71Ao8E0aoLG1LhaeE",
   authDomain: "fortnite-sprite-tracker-c6c12.firebaseapp.com",
   projectId: "fortnite-sprite-tracker-c6c12",
@@ -17,7 +17,7 @@ const ADMIN_EMAILS = ["pxyspam@gmail.com"];
 const DEFAULT_VARIANT_COLOR = "#ffd54a";
 /* ================================================================== */
 
-const app = initializeApp(firebaseConfig);
+const app = initializeApp(FIREBASE_CONFIG);
 const auth = getAuth(app), db = getFirestore(app);
 function showErr(m){ $("#list").innerHTML = `<p class="muted">⚠ ${m}</p>`; }
 setTimeout(() => { if(!loaded) showErr("Nessuna risposta da Firestore. Controlla le chiavi in FIREBASE_CONFIG, le regole e la console del browser (F12)."); }, 8000);
