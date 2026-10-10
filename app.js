@@ -13,7 +13,7 @@ const firebaseConfig = {
   appId: "1:927459336875:web:109456d977fc211dd54dee"
 };
 // 2) Email degli admin (devono coincidere con quelle nelle regole Firestore!)
-const ADMIN_EMAILS = ["tuamail@gmail.com"];
+const ADMIN_EMAILS = ["pxyspam@gmail.com"];
 const DEFAULT_VARIANT_COLOR = "#ffd54a";
 /* ================================================================== */
 
