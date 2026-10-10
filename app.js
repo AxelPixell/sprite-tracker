@@ -4,17 +4,16 @@ import {getFirestore,collection,doc,onSnapshot,setDoc,getDoc,updateDoc,deleteDoc
 
 /* ================= CONFIGURAZIONE (da modificare) ================= */
 // 1) Incolla qui le chiavi: Console Firebase > Impostazioni progetto > Le tue app > App web > Configurazione SDK
-const firebaseConfig = {
-  apiKey: "AIzaSyBhqbA-WP7_ZTBuAz71Ao8E0aoLG1LhaeE",
-  authDomain: "fortnite-sprite-tracker-c6c12.firebaseapp.com",
-  projectId: "fortnite-sprite-tracker-c6c12",
-  storageBucket: "fortnite-sprite-tracker-c6c12.firebasestorage.app",
-  messagingSenderId: "927459336875",
-  appId: "1:927459336875:web:109456d977fc211dd54dee"
+const FIREBASE_CONFIG = {
+  apiKey: "INCOLLA_QUI",
+  authDomain: "INCOLLA_QUI",
+  projectId: "INCOLLA_QUI",
+  storageBucket: "INCOLLA_QUI",
+  messagingSenderId: "INCOLLA_QUI",
+  appId: "INCOLLA_QUI"
 };
-
 // 2) Email degli admin (devono coincidere con quelle nelle regole Firestore!)
-const ADMIN_EMAILS = ["pxyspam@gmail.com"];
+const ADMIN_EMAILS = ["tuamail@gmail.com"];
 const DEFAULT_VARIANT_COLOR = "#ffd54a";
 /* ================================================================== */
 
@@ -23,6 +22,11 @@ const LOCAL = ["localhost","127.0.0.1"].includes(location.hostname);
 const app = initializeApp(LOCAL ? {apiKey:"demo-key",authDomain:"localhost",projectId:"demo-spiritelli"} : FIREBASE_CONFIG);
 const auth = getAuth(app), db = getFirestore(app);
 if (LOCAL) { connectAuthEmulator(auth,"http://127.0.0.1:9099",{disableWarnings:true}); connectFirestoreEmulator(db,"127.0.0.1",8080); }
+function showErr(m){ $("#list").innerHTML = `<p class="muted">⚠ ${m}</p>`; }
+if (LOCAL) $("h1").textContent += " (TEST locale)";
+setTimeout(() => { if(!loaded) showErr(LOCAL
+  ? "Impossibile contattare gli emulatori Firebase. Avviali con <code>firebase emulators:start --project demo-spiritelli</code> e apri <code>http://localhost:5000</code>."
+  : "Nessuna risposta da Firestore. Controlla le chiavi in FIREBASE_CONFIG, le regole e la console del browser (F12)."); }, 8000);
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const slug = s => String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
@@ -32,6 +36,7 @@ let user = null, isAdmin = false;
 let sprites = [], variants = [];      // database globale
 let me = {}, friends = {}, friendUnsubs = {};
 let filter = "all", pinned = new Set();
+let loaded = false;   // diventa true alla prima risposta di Firestore
 let logs = [], logUnsub = null;   // registro modifiche (solo admin)
 
 function toast(t){const e=$("#toast");e.textContent=t;e.classList.add("on");clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove("on"),3000)}
@@ -43,7 +48,7 @@ function dlgLog(){
 const login = () => signInWithPopup(auth,new GoogleAuthProvider()).catch(e=>toast("Login fallito: "+e.code));
 
 /* ---------- Dati globali (visibili a tutti) ---------- */
-onSnapshot(collection(db,"sprites"), s => { sprites = s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.order??1e9)-(b.order??1e9)||a.name.localeCompare(b.name)); render(); }, e=>toast("Errore lettura: "+e.code));
+onSnapshot(collection(db,"sprites"), s => { loaded = true; sprites = s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.order??1e9)-(b.order??1e9)||a.name.localeCompare(b.name)); render(); }, e=>showErr("Errore di lettura da Firestore ("+e.code+"). Controlla le regole e le chiavi in FIREBASE_CONFIG."));
 onSnapshot(doc(db,"config","variants"), s => { variants = s.exists() ? s.data().list : []; render(); });
 
 /* ---------- Auth e dati utente ---------- */
