@@ -17,28 +17,22 @@ const ADMIN_EMAILS = ["pxyspam@gmail.com"];
 const DEFAULT_VARIANT_COLOR = "#ffd54a";
 /* ================================================================== */
 
-// In locale (localhost) l'app usa gli emulatori Firebase con un progetto "demo": nessun dato reale viene letto o scritto
-const LOCAL = ["localhost","127.0.0.1"].includes(location.hostname);
-const app = initializeApp(LOCAL ? {apiKey:"demo-key",authDomain:"localhost",projectId:"demo-spiritelli"} : FIREBASE_CONFIG);
+const app = initializeApp(FIREBASE_CONFIG);
 const auth = getAuth(app), db = getFirestore(app);
-if (LOCAL) { connectAuthEmulator(auth,"http://127.0.0.1:9099",{disableWarnings:true}); connectFirestoreEmulator(db,"127.0.0.1",8080); }
 function showErr(m){ $("#list").innerHTML = `<p class="muted">⚠ ${m}</p>`; }
-if (LOCAL) $("h1").textContent += " (TEST locale)";
-setTimeout(() => { if(!loaded) showErr(LOCAL
-  ? "Impossibile contattare gli emulatori Firebase. Avviali con <code>firebase emulators:start --project demo-spiritelli</code> e apri <code>http://localhost:5000</code>."
-  : "Nessuna risposta da Firestore. Controlla le chiavi in FIREBASE_CONFIG, le regole e la console del browser (F12)."); }, 8000);
+setTimeout(() => { if(!loaded) showErr("Nessuna risposta da Firestore. Controlla le chiavi in FIREBASE_CONFIG, le regole e la console del browser (F12)."); }, 8000);
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const slug = s => String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
 const STATES = ["Non posseduto","Posseduto","Incoronato"];
-
+ 
 let user = null, isAdmin = false;
 let sprites = [], variants = [];      // database globale
 let me = {}, friends = {}, friendUnsubs = {};
 let filter = "all", pinned = new Set();
 let loaded = false;   // diventa true alla prima risposta di Firestore
 let logs = [], logUnsub = null;   // registro modifiche (solo admin)
-
+ 
 function toast(t){const e=$("#toast");e.textContent=t;e.classList.add("on");clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove("on"),3000)}
 // Registro delle ultime modifiche (collezione "log", leggibile/scrivibile solo dagli admin)
 const logEv = text => addDoc(collection(db,"log"),{text,ts:serverTimestamp(),by:user?.displayName||""}).catch(()=>{});
@@ -46,11 +40,11 @@ function dlgLog(){
   dlg(`<h3>Ultime 5 modifiche</h3>${logs.map(l=>`<div class="row"><span class="muted">${l.ts?l.ts.toDate().toLocaleString("it-IT"):"…"}</span><span>${esc(l.text)}</span>${l.by?`<span class="muted">(${esc(l.by)})</span>`:""}</div>`).join("")||'<p class="muted">Nessuna modifica registrata.</p>'}`);
 }
 const login = () => signInWithPopup(auth,new GoogleAuthProvider()).catch(e=>toast("Login fallito: "+e.code));
-
+ 
 /* ---------- Dati globali (visibili a tutti) ---------- */
 onSnapshot(collection(db,"sprites"), s => { loaded = true; sprites = s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.order??1e9)-(b.order??1e9)||a.name.localeCompare(b.name)); render(); }, e=>showErr("Errore di lettura da Firestore ("+e.code+"). Controlla le regole e le chiavi in FIREBASE_CONFIG."));
 onSnapshot(doc(db,"config","variants"), s => { variants = s.exists() ? s.data().list : []; render(); });
-
+ 
 /* ---------- Auth e dati utente ---------- */
 onAuthStateChanged(auth, async u => {
   user = u; isAdmin = !!u && ADMIN_EMAILS.map(e=>e.toLowerCase()).includes((u.email||"").toLowerCase());
@@ -68,7 +62,7 @@ function syncFriends(){
   for (const id of Object.keys(friendUnsubs)) if(!ids.includes(id)){friendUnsubs[id]();delete friendUnsubs[id];delete friends[id];}
   for (const id of ids) if(!friendUnsubs[id]) friendUnsubs[id]=onSnapshot(doc(db,"users",id),s=>{friends[id]=s.data()||{name:"?"};render()},()=>{});
 }
-
+ 
 /* ---------- Rendering ---------- */
 const stateOf = (sid,vk) => (me.states||{})[sid+"__"+vk] || 0;
 // Il filtro agisce sulle singole varianti; quelle appena toccate restano visibili finché non cambi filtro
@@ -104,7 +98,7 @@ function render(){
   }).join("");
   $("#list").innerHTML = list || '<p class="muted">Nessuno spiritello da mostrare.</p>';
 }
-
+ 
 /* ---------- Eventi ---------- */
 document.addEventListener("change", e => { if(e.target.id==="flt"){filter=e.target.value;pinned.clear();render();} });
 document.addEventListener("click", async e => {
@@ -123,7 +117,7 @@ document.addEventListener("click", async e => {
     variants:dlgVariants, import:dlgImport, export:dlgExport, log:dlgLog}[a]||(()=>{}))();
 });
 function dlg(html){const d=$("#dlg");d.innerHTML=html+`<div class="row"><button class="ghost" id="dclose">Chiudi</button></div>`;d.showModal();$("#dclose").onclick=()=>d.close();return d}
-
+ 
 /* ---------- Admin: spiritello ---------- */
 function dlgSprite(sp){
   const d = dlg(`<h3>${sp?"Modifica":"Nuovo"} spiritello</h3>
@@ -150,7 +144,7 @@ function dlgSprite(sp){
     d.close();
   };
 }
-
+ 
 /* ---------- Admin: gestione varianti globali ---------- */
 const saveVariants = l => setDoc(doc(db,"config","variants"),{list:l});
 function dlgVariants(){
@@ -200,7 +194,7 @@ function dlgVariants(){
     d.close(); toast("Variante creata");
   };
 }
-
+ 
 /* ---------- Admin: import / export ---------- */
 function parseText(t){
   const lines=t.replace(/^\uFEFF/,"").split(/\r?\n/).filter(l=>l.trim()); if(!lines.length) return [];
@@ -244,7 +238,7 @@ function dlgExport(){
   };
 }
 function save(blob,name){const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000)}
-
+ 
 /* ---------- Amici ---------- */
 function dlgFriends(){
   const d = dlg(`<h3>Amici</h3><p>Il tuo UID: <code>${esc(user.uid)}</code> <button class="ghost" id="cuid">Copia</button></p>
@@ -258,7 +252,7 @@ function dlgFriends(){
   };
   d.onclick=async e=>{const id=e.target.dataset.rm; if(id){await updateDoc(doc(db,"users",user.uid),{friends:arrayRemove(id)}); d.close();}};
 }
-
+ 
 /* ---------- PDF personale + condivisione ---------- */
 function buildPdf(){
   const pdf=new window.jspdf.jsPDF(); let y=16;
@@ -286,3 +280,4 @@ function dlgPdf(){
     if(t!=="save") toast("PDF salvato: allegalo nella chat");
   };
 }
+
