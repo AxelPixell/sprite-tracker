@@ -46,7 +46,7 @@ service cloud.firestore {
 
 Note di sicurezza:
 - La lista `ADMIN_EMAILS` in `app.js` serve solo a mostrare i pulsanti admin: chi può davvero scrivere è deciso dalle regole.
-- Ogni utente loggato può leggere il profilo di chi conosce per UID (nome, amici, stati); l’elenco completo degli utenti non è consultabile. Condividi il tuo UID solo con chi vuoi.
+- Ogni utente loggato può leggere i documenti `users` (nome, amici, stati): serve per mostrare i nomi degli amici. L'UID funziona quindi da "chiave" per essere aggiunti come amico: condividilo solo con chi vuoi.
 - Facoltativo: in Google Cloud > Credenziali puoi limitare la chiave API al tuo dominio e impostare un avviso di budget.
 
 ## Come funziona
@@ -68,7 +68,7 @@ Note di sicurezza:
   - modifica di nome e colore di ogni variante;
   - creazione di una nuova variante, con l'opzione di aggiungerla a tutti gli spiritelli esistenti;
   - eliminazione di una variante (viene tolta da tutti gli spiritelli);
-  - **riordino a trascinamento** con la maniglia ⠿ (mouse e touch). L'ordine vale per tutti gli spiritelli e non tocca i dati degli utenti.
+  - **riordino con le frecce ▲▼** a sinistra di ogni variante: sposta la variante su o giù e salva subito l'ordine. L'ordine vale per tutti gli spiritelli e non tocca i dati degli utenti.
 - **⬆ Importa:** carica un elenco da file `txt`, `csv`, `xlsx` o `ods`.
 - **⬇ Esporta:** scarica il database globale in `csv`, `txt`, `xlsx` o `ods`, utile come backup.
 - **📜 Log:** mostra le ultime 5 modifiche.
@@ -101,7 +101,7 @@ Gli stati degli utenti usano la chiave della variante, non la sua posizione né 
 
 1. **Prima versione:** interfaccia pubblica con spiritelli oscurati, login Google, stati non posseduto / posseduto / incoronato, varianti con colore globale, amici via UID, PDF con condivisione, funzioni admin (spiritelli, varianti, import ed export in vari formati), stile modificabile da `style.css`.
 2. **Filtro corretto:** il filtro *posseduti / mancanti* ora agisce sulle singole varianti e non sull'intero spiritello, perché prima quasi tutte le righe comparivano in entrambi i filtri.
-3. **Riordino delle varianti:** trascinamento nella finestra *Varianti*, con ordine globale salvato. Il nome della variante resta leggibile anche quando è oscurata.
+3. **Riordino delle varianti:** nella finestra *Varianti*, con ordine globale salvato (inizialmente a trascinamento, poi sostituito dalle frecce ▲▼ perché il trascinamento non funzionava in modo affidabile). Il nome della variante resta leggibile anche quando è oscurata.
 4. **Import e log:** l'import sostituisce le varianti con quelle del nuovo file, mantiene l'ordine del foglio e offre la sostituzione completa dell'elenco. Aggiunta la sezione *Log* con le ultime 5 modifiche. Nella modifica di uno spiritello ora si può cambiare anche il nome.
 5. **Diagnostica:** se Firestore non risponde, rifiuta la lettura o `app.js` non parte, la pagina mostra un messaggio d'errore invece del caricamento infinito.
 

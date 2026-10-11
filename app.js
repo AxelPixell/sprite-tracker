@@ -17,9 +17,13 @@ const ADMIN_EMAILS = ["pxyspam@gmail.com"];
 const DEFAULT_VARIANT_COLOR = "#ffd54a";
 /* ================================================================== */
 
+window.__appStarted = true;   // letto dallo script di diagnostica in index.html: se manca, app.js non è partito
+
 const app = initializeApp(FIREBASE_CONFIG);
 const auth = getAuth(app), db = getFirestore(app);
-function showErr(m){ $("#list").innerHTML = `<p class="muted">⚠ ${m}</p>`; }
+// L'errore viene memorizzato e mostrato da render(), così non viene più cancellato dai render successivi
+let loadError = null;
+function showErr(m){ loadError = m; render(); }
 setTimeout(() => { if(!loaded) showErr("Nessuna risposta da Firestore. Controlla le chiavi in FIREBASE_CONFIG, le regole e la console del browser (F12)."); }, 8000);
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -28,7 +32,7 @@ const STATES = ["Non posseduto","Posseduto","Incoronato"];
  
 let user = null, isAdmin = false;
 let sprites = [], variants = [];      // database globale
-let me = {}, friends = {}, friendUnsubs = {};
+let me = {}, friends = {}, friendUnsubs = {}, meUnsub = null;
 let filter = "all", pinned = new Set();
 let loaded = false;   // diventa true alla prima risposta di Firestore
 let logs = [], logUnsub = null;   // registro modifiche (solo admin)
@@ -42,20 +46,25 @@ function dlgLog(){
 const login = () => signInWithPopup(auth,new GoogleAuthProvider()).catch(e=>toast("Login fallito: "+e.code));
  
 /* ---------- Dati globali (visibili a tutti) ---------- */
-onSnapshot(collection(db,"sprites"), s => { loaded = true; sprites = s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.order??1e9)-(b.order??1e9)||a.name.localeCompare(b.name)); render(); }, e=>showErr("Errore di lettura da Firestore ("+e.code+"). Controlla le regole e le chiavi in FIREBASE_CONFIG."));
-onSnapshot(doc(db,"config","variants"), s => { variants = s.exists() ? s.data().list : []; render(); });
+onSnapshot(collection(db,"sprites"), s => { loaded = true; loadError = null; sprites = s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.order??1e9)-(b.order??1e9)||a.name.localeCompare(b.name)); render(); }, e=>showErr("Errore di lettura da Firestore ("+e.code+"). Controlla le regole e le chiavi in FIREBASE_CONFIG."));
+onSnapshot(doc(db,"config","variants"), s => { variants = s.exists() ? s.data().list : []; render(); }, e=>showErr("Errore di lettura delle varianti ("+e.code+"). Controlla le regole Firestore."));
  
 /* ---------- Auth e dati utente ---------- */
 onAuthStateChanged(auth, async u => {
   user = u; isAdmin = !!u && ADMIN_EMAILS.map(e=>e.toLowerCase()).includes((u.email||"").toLowerCase());
+  meUnsub?.(); meUnsub = null;   // chiude il listener del profilo dell'utente precedente
   Object.values(friendUnsubs).forEach(f=>f()); friendUnsubs = {}; friends = {}; me = {};
   logUnsub?.(); logUnsub = null; logs = [];
+  pinned.clear();
   if (isAdmin) logUnsub = onSnapshot(query(collection(db,"log"),orderBy("ts","desc"),limit(5)), s => { logs = s.docs.map(d=>d.data()); }, ()=>{});
-  if (u) {
-    await setDoc(doc(db,"users",u.uid),{name:u.displayName||"Utente"},{merge:true});
-    onSnapshot(doc(db,"users",u.uid), s => { me = s.data()||{}; syncFriends(); render(); });
-  }
   render();
+  if (u) {
+    try { await setDoc(doc(db,"users",u.uid),{name:u.displayName||"Utente"},{merge:true}); }
+    catch(e){ toast("Errore salvataggio profilo: "+(e.code||e.message)); }
+    if (auth.currentUser !== u) return;   // nel frattempo c'è stato un logout o un cambio account
+    meUnsub = onSnapshot(doc(db,"users",u.uid), s => { me = s.data()||{}; syncFriends(); render(); },
+      e => toast("Errore lettura profilo: "+(e.code||e.message)));
+  }
 });
 function syncFriends(){
   const ids = me.friends||[];
@@ -96,7 +105,9 @@ function render(){
       ${isAdmin?`<button class="ghost" data-act="editSprite" data-s="${esc(sp.id)}">✎</button><button class="danger" data-act="delSprite" data-s="${esc(sp.id)}">🗑</button>`:""}
       </div><div class="cells">${cells||'<span class="muted">Nessuna variante</span>'}</div></article>`;
   }).join("");
-  $("#list").innerHTML = list || '<p class="muted">Nessuno spiritello da mostrare.</p>';
+  $("#list").innerHTML = loadError ? `<p class="muted">⚠ ${esc(loadError)}</p>`
+    : !loaded ? '<p class="muted">Caricamento…</p>'
+    : (list || '<p class="muted">Nessuno spiritello da mostrare.</p>');
 }
  
 /* ---------- Eventi ---------- */
@@ -149,30 +160,35 @@ function dlgSprite(sp){
 const saveVariants = l => setDoc(doc(db,"config","variants"),{list:l});
 function dlgVariants(){
   const d = dlg(`<h3>Varianti (valgono per tutti gli spiritelli)</h3>
-    <p class="muted">Trascina ⠿ per cambiare l'ordine: vale per tutti gli spiritelli. I dati degli utenti non vengono toccati.</p>
-    ${variants.map(v=>`<div class="row vrow" data-k="${esc(v.key)}"><span class="grip" title="Trascina">⠿</span><input type="color" value="${esc(v.color)}"><input value="${esc(v.name)}">
+    <p class="muted">Usa le frecce ▲▼ per spostare una variante: l'ordine vale per tutti gli spiritelli e si salva subito. I dati degli utenti non vengono toccati.</p>
+    ${variants.map(v=>`<div class="row vrow" data-k="${esc(v.key)}"><span class="mv"><button class="ghost" data-a="up" title="Sposta su">▲</button><button class="ghost" data-a="down" title="Sposta giù">▼</button></span><input type="color" value="${esc(v.color)}"><input value="${esc(v.name)}">
       <button data-a="save">Salva</button><button class="danger" data-a="del">🗑</button></div>`).join("")}
     <hr><h3>Nuova variante</h3>
     <div class="row"><input type="color" id="nc" value="${DEFAULT_VARIANT_COLOR}"><input id="nn" placeholder="Nome">
     <label class="chk"><input type="checkbox" id="nall" checked>aggiungi a tutti gli spiritelli</label><button id="nadd">Crea</button></div>`);
-  // Riordino a trascinamento (mouse e touch). Cambia solo l'ordine della lista globale: le chiavi restano uguali, quindi gli stati degli utenti non cambiano.
-  d.onpointerdown = e => {
-    const g = e.target.closest(".grip"); if(!g) return;
-    const row = g.closest(".vrow"); row.classList.add("drag"); g.setPointerCapture(e.pointerId);
-    const mv = ev => {
-      const t = document.elementFromPoint(ev.clientX,ev.clientY)?.closest(".vrow");
-      if(t && t!==row){ const b=t.getBoundingClientRect(); t.parentNode.insertBefore(row, ev.clientY < b.top+b.height/2 ? t : t.nextSibling); }
-    };
-    const up = async () => {
-      g.removeEventListener("pointermove",mv); g.removeEventListener("pointerup",up); g.removeEventListener("pointercancel",up);
-      row.classList.remove("drag");
-      const l = [...d.querySelectorAll(".vrow")].map(x=>variants.find(v=>v.key===x.dataset.k)).filter(Boolean);
-      if(l.length===variants.length && l.some((v,i)=>v.key!==variants[i].key)){ await saveVariants(l); toast("Ordine salvato"); }
-    };
-    g.addEventListener("pointermove",mv); g.addEventListener("pointerup",up); g.addEventListener("pointercancel",up);
+  // Riordino a tasti. Cambia solo l'ordine della lista globale (config/variants): le chiavi delle varianti restano uguali,
+  // quindi gli stati salvati dagli utenti (idSpiritello__chiaveVariante) e le varianti di ogni spiritello non vengono toccati.
+  let curKeys = variants.map(v=>v.key);   // ultimo ordine inviato al database
+  const refreshArrows = () => {
+    const rows = [...d.querySelectorAll(".vrow")];
+    rows.forEach((r,i)=>{ r.querySelector('[data-a="up"]').disabled = i===0; r.querySelector('[data-a="down"]').disabled = i===rows.length-1; });
+  };
+  refreshArrows();
+  const moveRow = async (row, dir) => {
+    const sib = dir==="up" ? row.previousElementSibling : row.nextElementSibling;
+    if(!sib || !sib.classList.contains("vrow")) return;
+    row.parentNode.insertBefore(dir==="up" ? row : sib, dir==="up" ? sib : row);
+    refreshArrows();
+    const l = [...d.querySelectorAll(".vrow")].map(x=>variants.find(v=>v.key===x.dataset.k)).filter(Boolean);
+    const keys = l.map(v=>v.key);
+    if(l.length!==variants.length || keys.join()===curKeys.join()) return;
+    curKeys = keys;
+    try { await saveVariants(l); toast("Ordine salvato"); }
+    catch(err){ toast("Errore nel salvataggio dell'ordine"); d.close(); dlgVariants(); }
   };
   d.onclick = async e => {
     const r = e.target.closest("[data-k]"), a = e.target.dataset.a; if(!r||!a) return;
+    if(a==="up"||a==="down") return moveRow(r,a);
     const i = variants.findIndex(v=>v.key===r.dataset.k); if(i<0) return;
     const l=variants.map(v=>({...v}));
     if(a==="save"){

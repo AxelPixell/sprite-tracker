@@ -47,8 +47,10 @@ input[type=color]{padding:0;width:38px;height:34px;border:0;background:none}
 /* Non posseduto: si oscura il bollino e lo sfondo, il nome colorato resta ben leggibile */
 .s0 .tile{background:var(--obscured-bg);border-color:var(--obscured-border)}
 .s0 .dot{filter:var(--obscured-filter);opacity:.6}
-.grip{cursor:grab;touch-action:none;user-select:none;font-size:1.4rem;padding:0 8px;color:var(--muted)}
-.vrow.drag{opacity:.6;outline:2px dashed var(--accent);border-radius:8px}
+.mv{display:flex;flex-direction:column;gap:2px;flex:none}
+.mv button{padding:1px 9px;font-size:.7rem;line-height:1.3;border-radius:6px}
+button:disabled{opacity:.3;cursor:default}
+button:disabled:hover{filter:none}
 .s1 .tile{border-color:var(--owned)}
 .s1 .dot{background:var(--owned);border-color:var(--owned)}
 .s1 .dot::after{content:"✓";color:#000}
