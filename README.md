@@ -46,7 +46,7 @@ service cloud.firestore {
 
 Note di sicurezza:
 - La lista `ADMIN_EMAILS` in `app.js` serve solo a mostrare i pulsanti admin: chi può davvero scrivere è deciso dalle regole.
-- Ogni utente loggato può leggere i documenti `users` (nome, amici, stati): serve per mostrare i nomi degli amici. L'UID funziona quindi da "chiave" per essere aggiunti come amico: condividilo solo con chi vuoi.
+- Ogni utente loggato può leggere il profilo di chi conosce per UID (nome, amici, stati); l’elenco completo degli utenti non è consultabile. Condividi il tuo UID solo con chi vuoi.
 - Facoltativo: in Google Cloud > Credenziali puoi limitare la chiave API al tuo dominio e impostare un avviso di budget.
 
 ## Come funziona
