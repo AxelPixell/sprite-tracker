@@ -58,7 +58,7 @@ Note di sicurezza:
 ### Per gli utenti loggati (Google)
 - **Stati:** un click o tap su una variante la fa passare da *non posseduta* a *posseduta* (✓), poi a *incoronata* (👑), poi di nuovo a *non posseduta*. L'utente salva solo il proprio stato.
 - **Filtro:** *Tutti*, *Solo posseduti*, *Solo mancanti*. Il filtro agisce sulle singole varianti: in ogni riga restano visibili solo quelle possedute (o mancanti). Una variante appena toccata resta visibile finché non si cambia filtro.
-- **Contatore:** accanto al filtro mostra *Posseduti: X / Y*. Ogni variante di ogni spiritello conta come un elemento; posseduta e incoronata contano entrambe come possedute. Il conteggio non dipende dal filtro scelto.
+- **Contatore:** accanto al filtro mostra *Posseduti: X / Y*. Ogni variante di ogni spiritello conta come un elemento; posseduta e incoronata contano entrambe come possedute, e tra parentesi (👑 N) compare quante sono incoronate. Il conteggio non dipende dal filtro scelto.
 - **Amici:** si aggiungono tramite UID (visibile nella finestra *👥 Amici*, dove ci sono anche i pulsanti per condividere il proprio UID su WhatsApp, che apre la chat con il messaggio pronto, e su Discord, che copia il messaggio negli appunti e apre Discord: va incollato nella chat). Sotto ogni variante compaiono i nomi degli amici che la possiedono (incoronata vale come posseduta), in un colore sempre leggibile anche se la variante dell'utente è oscurata.
 - **PDF:** *📄 PDF* esporta la lista personale (incoronati, posseduti e mancanti per ogni spiritello). Si può condividere su WhatsApp o Discord (da smartphone si apre il menu di condivisione; da PC il PDF viene scaricato e si apre l'app) oppure salvare sul dispositivo.
 

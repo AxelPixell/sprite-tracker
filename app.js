@@ -84,14 +84,14 @@ function render(){
     ? `<span class="muted">${esc(user.displayName)}${isAdmin?" (admin)":""}</span> <button class="ghost" data-act="logout">Esci</button>`
     : `<button data-act="login">Accedi con Google</button>`;
   // Contatore: ogni variante di ogni spiritello conta come un elemento; posseduta e incoronata contano entrambe come "possedute"
-  const cnt = {owned:0, total:0};
+  const cnt = {owned:0, crown:0, total:0};
   if(user){
     const keys = new Set(variants.map(v=>v.key));
-    sprites.forEach(sp => (sp.variants||[]).forEach(k => { if(!keys.has(k)) return; cnt.total++; if(stateOf(sp.id,k)>0) cnt.owned++; }));
+    sprites.forEach(sp => (sp.variants||[]).forEach(k => { if(!keys.has(k)) return; cnt.total++; const n = stateOf(sp.id,k); if(n>0) cnt.owned++; if(n===2) cnt.crown++; }));
   }
   let tb = "";
   if(user) tb += `<select id="flt"><option value="all">Tutti</option><option value="owned">Solo posseduti</option><option value="missing">Solo mancanti</option></select>
-    <span class="counter" title="Varianti possedute o incoronate / totale delle varianti di tutti gli spiritelli">Posseduti: <b>${cnt.owned}</b> / ${cnt.total}</span>
+    <span class="counter" title="Varianti possedute o incoronate / totale delle varianti di tutti gli spiritelli (tra parentesi: quante sono incoronate)">Posseduti: <b>${cnt.owned}</b> / ${cnt.total} (👑 ${cnt.crown})</span>
     <button data-act="friends">👥 Amici</button><button data-act="pdf">📄 PDF</button>`;
   if(isAdmin) tb += `<button data-act="newSprite">＋ Spiritello</button><button data-act="variants">🎨 Varianti</button><button data-act="import">⬆ Importa</button><button data-act="export">⬇ Esporta</button><button data-act="log">📜 Log</button>`;
   $("#toolbar").innerHTML = tb; if($("#flt")) $("#flt").value = filter;
