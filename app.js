@@ -83,8 +83,15 @@ function render(){
   $("#auth").innerHTML = user
     ? `<span class="muted">${esc(user.displayName)}${isAdmin?" (admin)":""}</span> <button class="ghost" data-act="logout">Esci</button>`
     : `<button data-act="login">Accedi con Google</button>`;
+  // Contatore: ogni variante di ogni spiritello conta come un elemento; posseduta e incoronata contano entrambe come "possedute"
+  const cnt = {owned:0, total:0};
+  if(user){
+    const keys = new Set(variants.map(v=>v.key));
+    sprites.forEach(sp => (sp.variants||[]).forEach(k => { if(!keys.has(k)) return; cnt.total++; if(stateOf(sp.id,k)>0) cnt.owned++; }));
+  }
   let tb = "";
   if(user) tb += `<select id="flt"><option value="all">Tutti</option><option value="owned">Solo posseduti</option><option value="missing">Solo mancanti</option></select>
+    <span class="counter" title="Varianti possedute o incoronate / totale delle varianti di tutti gli spiritelli">Posseduti: <b>${cnt.owned}</b> / ${cnt.total}</span>
     <button data-act="friends">👥 Amici</button><button data-act="pdf">📄 PDF</button>`;
   if(isAdmin) tb += `<button data-act="newSprite">＋ Spiritello</button><button data-act="variants">🎨 Varianti</button><button data-act="import">⬆ Importa</button><button data-act="export">⬇ Esporta</button><button data-act="log">📜 Log</button>`;
   $("#toolbar").innerHTML = tb; if($("#flt")) $("#flt").value = filter;
@@ -258,9 +265,20 @@ function save(blob,name){const a=document.createElement("a");a.href=URL.createOb
 /* ---------- Amici ---------- */
 function dlgFriends(){
   const d = dlg(`<h3>Amici</h3><p>Il tuo UID: <code>${esc(user.uid)}</code> <button class="ghost" id="cuid">Copia</button></p>
+    <div class="row"><span class="muted">Condividi il tuo UID:</span><button id="uwa">WhatsApp</button><button id="udc">Discord</button></div>
     <div class="row"><input id="fuid" placeholder="UID dell'amico"><button id="fadd">Aggiungi</button></div>
     ${(me.friends||[]).map(id=>`<div class="row"><span style="flex:1">${esc(friends[id]?.name||id)}</span><button class="danger" data-rm="${esc(id)}">Rimuovi</button></div>`).join("")}`);
   $("#cuid").onclick=()=>navigator.clipboard?.writeText(user.uid).then(()=>toast("UID copiato"));
+  // Condivisione dell'UID: WhatsApp apre la chat con il testo già pronto; Discord non permette testi precompilati,
+  // quindi il messaggio viene copiato negli appunti e va incollato nella chat.
+  const uidMsg = "Aggiungimi su Spiritelli Tracker! Il mio UID: "+user.uid+"\n"+location.origin+location.pathname;
+  $("#uwa").onclick=()=>window.open("https://wa.me/?text="+encodeURIComponent(uidMsg),"_blank");
+  $("#udc").onclick=()=>{
+    const p = navigator.clipboard?.writeText(uidMsg);
+    window.open("https://discord.com/channels/@me","_blank");
+    if(p) p.then(()=>toast("Messaggio copiato: incollalo nella chat Discord"),()=>toast("Copia non riuscita: usa il pulsante Copia"));
+    else toast("Copia non disponibile: usa il pulsante Copia");
+  };
   $("#fadd").onclick=async()=>{
     const id=$("#fuid").value.trim(); if(!id||id===user.uid) return toast("UID non valido");
     const s=await getDoc(doc(db,"users",id)); if(!s.exists()) return toast("Utente non trovato");

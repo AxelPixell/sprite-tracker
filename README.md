@@ -58,7 +58,8 @@ Note di sicurezza:
 ### Per gli utenti loggati (Google)
 - **Stati:** un click o tap su una variante la fa passare da *non posseduta* a *posseduta* (✓), poi a *incoronata* (👑), poi di nuovo a *non posseduta*. L'utente salva solo il proprio stato.
 - **Filtro:** *Tutti*, *Solo posseduti*, *Solo mancanti*. Il filtro agisce sulle singole varianti: in ogni riga restano visibili solo quelle possedute (o mancanti). Una variante appena toccata resta visibile finché non si cambia filtro.
-- **Amici:** si aggiungono tramite UID (visibile nella finestra *👥 Amici*). Sotto ogni variante compaiono i nomi degli amici che la possiedono (incoronata vale come posseduta), in un colore sempre leggibile anche se la variante dell'utente è oscurata.
+- **Contatore:** accanto al filtro mostra *Posseduti: X / Y*. Ogni variante di ogni spiritello conta come un elemento; posseduta e incoronata contano entrambe come possedute. Il conteggio non dipende dal filtro scelto.
+- **Amici:** si aggiungono tramite UID (visibile nella finestra *👥 Amici*, dove ci sono anche i pulsanti per condividere il proprio UID su WhatsApp, che apre la chat con il messaggio pronto, e su Discord, che copia il messaggio negli appunti e apre Discord: va incollato nella chat). Sotto ogni variante compaiono i nomi degli amici che la possiedono (incoronata vale come posseduta), in un colore sempre leggibile anche se la variante dell'utente è oscurata.
 - **PDF:** *📄 PDF* esporta la lista personale (incoronati, posseduti e mancanti per ogni spiritello). Si può condividere su WhatsApp o Discord (da smartphone si apre il menu di condivisione; da PC il PDF viene scaricato e si apre l'app) oppure salvare sul dispositivo.
 
 ### Per gli admin
@@ -104,6 +105,8 @@ Gli stati degli utenti usano la chiave della variante, non la sua posizione né 
 3. **Riordino delle varianti:** nella finestra *Varianti*, con ordine globale salvato (inizialmente a trascinamento, poi sostituito dalle frecce ▲▼ perché il trascinamento non funzionava in modo affidabile). Il nome della variante resta leggibile anche quando è oscurata.
 4. **Import e log:** l'import sostituisce le varianti con quelle del nuovo file, mantiene l'ordine del foglio e offre la sostituzione completa dell'elenco. Aggiunta la sezione *Log* con le ultime 5 modifiche. Nella modifica di uno spiritello ora si può cambiare anche il nome.
 5. **Diagnostica:** se Firestore non risponde, rifiuta la lettura o `app.js` non parte, la pagina mostra un messaggio d'errore invece del caricamento infinito.
+
+6. **Contatore e condivisione UID:** contatore posseduti/totale accanto al filtro; pulsanti WhatsApp e Discord per condividere il proprio UID nella finestra *Amici*.
 
 ## Risoluzione dei problemi
 
