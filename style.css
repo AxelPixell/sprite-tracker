@@ -63,6 +63,7 @@ button:disabled:hover{filter:none}
 dialog{background:var(--card);color:var(--text);border:1px solid var(--card-border);border-radius:var(--radius);width:min(560px,94vw);max-height:90vh}
 dialog::backdrop{background:#000a}
 dialog h3{margin-top:0}
+.scroll{max-height:160px;overflow:auto;border:1px solid var(--card-border);border-radius:8px;padding:6px 10px;font-size:.85rem;margin:6px 0}
 .row{display:flex;gap:8px;align-items:center;margin:6px 0;flex-wrap:wrap}
 .row input[type=text],.row input:not([type]){flex:1;min-width:120px}
 .chk{display:inline-flex;gap:5px;align-items:center;margin-right:10px}

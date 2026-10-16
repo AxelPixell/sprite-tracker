@@ -92,7 +92,7 @@ function render(){
   let tb = "";
   if(user) tb += `<select id="flt"><option value="all">Tutti</option><option value="owned">Solo posseduti</option><option value="missing">Solo mancanti</option></select>
     <span class="counter" title="Varianti possedute o incoronate / totale delle varianti di tutti gli spiritelli (tra parentesi: quante sono incoronate)">Posseduti: <b>${cnt.owned}</b> / ${cnt.total} (👑 ${cnt.crown})</span>
-    <button data-act="friends">👥 Amici</button><button data-act="pdf">📄 PDF</button>`;
+    <button data-act="friends">👥 Amici</button><button data-act="pdf">📄 PDF</button><button data-act="backup">💾 Backup</button>`;
   if(isAdmin) tb += `<button data-act="newSprite">＋ Spiritello</button><button data-act="variants">🎨 Varianti</button><button data-act="import">⬆ Importa</button><button data-act="export">⬇ Esporta</button><button data-act="log">📜 Log</button>`;
   $("#toolbar").innerHTML = tb; if($("#flt")) $("#flt").value = filter;
   const vmap = Object.fromEntries(variants.map(v=>[v.key,v]));
@@ -130,11 +130,11 @@ document.addEventListener("click", async e => {
   }
   const b = e.target.closest("[data-act]"); if(!b) return;
   const a = b.dataset.act, sp = sprites.find(x=>x.id===b.dataset.s);
-  ({login, logout:()=>signOut(auth), friends:dlgFriends, pdf:dlgPdf, newSprite:()=>dlgSprite(), editSprite:()=>dlgSprite(sp),
+  ({login, logout:()=>signOut(auth), friends:dlgFriends, pdf:dlgPdf, backup:dlgBackup, newSprite:()=>dlgSprite(), editSprite:()=>dlgSprite(sp),
     delSprite:async()=>{ if(confirm(`Eliminare ${sp.name}?`)) { await deleteDoc(doc(db,"sprites",sp.id)); logEv(`Eliminato spiritello «${sp.name}»`); } },
     variants:dlgVariants, import:dlgImport, export:dlgExport, log:dlgLog}[a]||(()=>{}))();
 });
-function dlg(html){const d=$("#dlg");d.innerHTML=html+`<div class="row"><button class="ghost" id="dclose">Chiudi</button></div>`;d.showModal();$("#dclose").onclick=()=>d.close();return d}
+function dlg(html,closeLabel="Chiudi"){const d=$("#dlg");d.innerHTML=html+`<div class="row"><button class="ghost" id="dclose">${closeLabel}</button></div>`;d.showModal();$("#dclose").onclick=()=>d.close();return d}
  
 /* ---------- Admin: spiritello ---------- */
 function dlgSprite(sp){
@@ -301,6 +301,96 @@ function buildPdf(){
   }
   return pdf.output("blob");
 }
+/* ---------- Backup della checklist personale (file txt) ---------- */
+// Formato del file: una riga per spiritello  ->  Nome | Variante: stato | Variante: stato
+// Le righe che iniziano con # sono commenti. Stati: non posseduto, posseduto, incoronato.
+const STATE_NAMES = ["non posseduto","posseduto","incoronato"];
+const norm = s => String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/\s+/g," ").trim();
+function todayStr(){ const t=new Date(), z=n=>String(n).padStart(2,"0"); return `${t.getFullYear()}-${z(t.getMonth()+1)}-${z(t.getDate())}`; }
+// Legge capitolo e stagione dal titolo in <header><h1>: "Capitolo 4 Stagione 7" oppure "C4S7"
+function chapterSeason(){
+  const t = document.querySelector("header h1")?.textContent || "";
+  const m = t.match(/capitolo\s*(\d+)\D*?stagione\s*(\d+)/i) || t.match(/\bC\s*(\d+)\s*S\s*(\d+)\b/i);
+  return m ? `_cap${m[1]}st${m[2]}` : "";
+}
+const backupName = () => `backup_checklist_${todayStr()}${chapterSeason()}`;
+
+function buildBackup(){
+  const lines = [`# ${backupName()}`, "# Formato: Spiritello | Variante: stato | Variante: stato", "# Stati possibili: non posseduto, posseduto, incoronato"];
+  sprites.forEach(sp => {
+    const vs = variants.filter(v => (sp.variants||[]).includes(v.key));   // solo varianti presenti nella lista globale, nel suo ordine
+    lines.push([sp.name, ...vs.map(v => `${v.name}: ${STATE_NAMES[stateOf(sp.id,v.key)] || STATE_NAMES[0]}`)].join(" | "));
+  });
+  return lines.join("\n")+"\n";
+}
+
+// Confronta il file con la lista globale (per nome di spiritello e di variante, senza maiuscole/accenti)
+function analyzeBackup(text){
+  const found = new Map(), badSprites = [], badVariants = [];
+  let rows = 0;
+  text.replace(/^\uFEFF/,"").split(/\r?\n/).forEach(line => {
+    line = line.trim(); if(!line || line.startsWith("#")) return;
+    const parts = line.split(" | ").map(p=>p.trim()), name = parts.shift();
+    if(!name) return;
+    rows++;
+    const sp = sprites.find(s => norm(s.name)===norm(name));
+    if(!sp){ if(!badSprites.includes(name)) badSprites.push(name); return; }
+    const upd = found.get(sp.id)?.upd || {};
+    parts.forEach(p => {
+      const i = p.lastIndexOf(":");
+      const vname = i<0 ? p : p.slice(0,i), st = i<0 ? -1 : STATE_NAMES.indexOf(norm(p.slice(i+1)));
+      const v = variants.find(x => norm(x.name)===norm(vname) && (sp.variants||[]).includes(x.key));
+      if(!v || st<0){ badVariants.push(`${sp.name}: ${p}`); return; }
+      upd[sp.id+"__"+v.key] = st;
+    });
+    found.set(sp.id, {name:sp.name, upd});
+  });
+  return {rows, found, badSprites, badVariants};
+}
+
+function dlgBackup(){
+  const d = dlg(`<h3>Backup della mia checklist</h3>
+    <p class="muted">Salva su file di testo lo stato di tutte le tue varianti, oppure ripristinalo da un backup.</p>
+    <div class="row"><button id="bkexp">⬇ Esporta (txt)</button></div>
+    <hr>
+    <div class="row"><input type="file" id="bkfile" accept=".txt,text/plain"><button id="bkgo">⬆ Importa</button></div>
+    <p class="muted">Prima dell'importazione vedrai un riepilogo e potrai confermare o annullare.</p>`);
+  d.onclick = null;
+  $("#bkexp").onclick = () => {
+    if(!sprites.length) return toast("Nessuno spiritello da esportare");
+    save(new Blob([buildBackup()],{type:"text/plain;charset=utf-8"}), backupName()+".txt");
+    toast("Backup salvato");
+  };
+  $("#bkgo").onclick = async () => {
+    const f = $("#bkfile").files[0]; if(!f) return toast("Scegli un file");
+    let text; try{ text = await f.text(); }catch(e){ return toast("Impossibile leggere il file"); }
+    const r = analyzeBackup(text);
+    if(!r.rows) return toast("Il file non contiene righe valide");
+    d.close(); dlgBackupConfirm(r);
+  };
+}
+
+function dlgBackupConfirm(r){
+  const n = r.found.size, nv = [...r.found.values()].reduce((a,x)=>a+Object.keys(x.upd).length,0);
+  const box = a => a.length ? `<div class="scroll">${a.map(esc).join("<br>")}</div>` : "";
+  const d = dlg(`<h3>Importa checklist</h3>
+    <p>✅ Spiritelli conformi, che verranno importati: <b>${n}</b> (${nv} varianti)</p>
+    <p>⚠ Spiritelli non presenti nella lista globale, che verranno scartati: <b>${r.badSprites.length}</b></p>${box(r.badSprites)}
+    ${r.badVariants.length ? `<p>⚠ Varianti non riconosciute, che verranno ignorate: <b>${r.badVariants.length}</b></p>${box(r.badVariants)}` : ""}
+    <p class="muted">Per gli spiritelli conformi, lo stato delle varianti presenti nel file sostituisce quello attuale. Il resto della tua checklist non viene toccato.</p>
+    ${n ? `<div class="row"><button id="bkok">Importa</button></div>` : `<p>Nessuno spiritello da importare.</p>`}`, "Annulla");
+  d.onclick = null;
+  if(!n) return;
+  $("#bkok").onclick = async () => {
+    if(!user) return toast("Accedi con Google");
+    $("#bkok").disabled = true;
+    const upd = {};
+    r.found.forEach(x => Object.entries(x.upd).forEach(([k,st]) => { upd[k] = st===0 ? deleteField() : st; }));
+    try{ await setDoc(doc(db,"users",user.uid),{states:upd},{merge:true}); d.close(); toast(`Importati ${n} spiritelli (${nv} varianti)`); }
+    catch(e){ $("#bkok").disabled = false; toast("Errore durante l'importazione: "+(e.code||e.message)); }
+  };
+}
+
 function dlgPdf(){
   const d=dlg(`<h3>Esporta la mia lista (PDF)</h3><div class="row"><button data-p="wa">WhatsApp</button><button data-p="dc">Discord</button><button data-p="save">Salva su dispositivo</button></div>
     <p class="muted">Su smartphone si apre il menu di condivisione; su PC il PDF viene scaricato e si apre l'app scelta.</p>`);

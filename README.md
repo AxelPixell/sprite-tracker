@@ -60,6 +60,9 @@ Note di sicurezza:
 - **Filtro:** *Tutti*, *Solo posseduti*, *Solo mancanti*. Il filtro agisce sulle singole varianti: in ogni riga restano visibili solo quelle possedute (o mancanti). Una variante appena toccata resta visibile finché non si cambia filtro.
 - **Contatore:** accanto al filtro mostra *Posseduti: X / Y*. Ogni variante di ogni spiritello conta come un elemento; posseduta e incoronata contano entrambe come possedute, e tra parentesi (👑 N) compare quante sono incoronate. Il conteggio non dipende dal filtro scelto.
 - **Amici:** si aggiungono tramite UID (visibile nella finestra *👥 Amici*, dove ci sono anche i pulsanti per condividere il proprio UID su WhatsApp, che apre la chat con il messaggio pronto, e su Discord, che copia il messaggio negli appunti e apre Discord: va incollato nella chat). Sotto ogni variante compaiono i nomi degli amici che la possiedono (incoronata vale come posseduta), in un colore sempre leggibile anche se la variante dell'utente è oscurata.
+- **Backup (💾):** la finestra *Backup* permette di esportare e importare la propria checklist in un file `txt`.
+  - *Esporta:* scrive una riga per spiritello, nell'ordine della lista globale, con le sole varianti presenti e il loro stato: `Nome | Variante: stato | Variante: stato` (stati: *non posseduto*, *posseduto*, *incoronato*). Il file si chiama `backup_checklist_AAAA-MM-GG_capXstY.txt`: data dell'export e numeri di capitolo e stagione presi dal titolo in `<header><h1>` della pagina (formato `Capitolo 4 Stagione 7` oppure `C4S7`; se non li trova, il nome termina con la data).
+  - *Importa:* confronta nomi di spiritelli e di varianti con la lista globale (senza distinguere maiuscole e accenti) e mostra un riepilogo: quanti spiritelli sono conformi e verranno importati, quali non combaciano e verranno scartati, e le eventuali varianti non riconosciute. Solo dopo la conferma scrive i dati. Per gli spiritelli conformi lo stato delle varianti presenti nel file sostituisce quello attuale; tutto il resto della checklist resta com'è. Le righe che iniziano con `#` sono commenti.
 - **PDF:** *📄 PDF* esporta la lista personale (incoronati, posseduti e mancanti per ogni spiritello). Si può condividere su WhatsApp o Discord (da smartphone si apre il menu di condivisione; da PC il PDF viene scaricato e si apre l'app) oppure salvare sul dispositivo.
 
 ### Per gli admin
@@ -107,6 +110,7 @@ Gli stati degli utenti usano la chiave della variante, non la sua posizione né 
 5. **Diagnostica:** se Firestore non risponde, rifiuta la lettura o `app.js` non parte, la pagina mostra un messaggio d'errore invece del caricamento infinito.
 
 6. **Contatore e condivisione UID:** contatore posseduti/totale accanto al filtro; pulsanti WhatsApp e Discord per condividere il proprio UID nella finestra *Amici*.
+7. **Backup checklist:** esportazione e importazione della checklist personale in `txt`, con riepilogo e conferma prima dell'import.
 
 ## Risoluzione dei problemi
 
