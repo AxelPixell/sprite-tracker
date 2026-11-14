@@ -67,7 +67,7 @@ Note di sicurezza:
 
 ### Per gli admin
 - **＋ Spiritello:** crea una riga con nome, URL dell'avatar e varianti presenti.
-- **✎ / 🗑 su ogni riga:** modifica nome, avatar e varianti dello spiritello, oppure lo elimina.
+- **✎ / 🗑 su ogni riga:** modifica nome, avatar, rarità (sfondo dell'avatar) e varianti dello spiritello, oppure lo elimina.
 - **🎨 Varianti:** le varianti sono globali, cioè hanno lo stesso nome e colore per tutti gli spiritelli.
   - modifica di nome e colore di ogni variante;
   - creazione di una nuova variante, con l'opzione di aggiungerla a tutti gli spiritelli esistenti;
@@ -81,10 +81,12 @@ Note di sicurezza:
 Una riga per spiritello, con campi separati da `;`, tab o virgola:
 
 ```
-Nome; URL avatar (oppure -); variante1; variante2; ...
+Nome; rarità (oppure -); URL avatar (oppure -); variante1; variante2; ...
 ```
 
-- `-` indica un URL vuoto. Il numero di varianti può essere diverso da riga a riga. La riga di intestazione è facoltativa.
+- **Rarità:** `raro`, `epico`, `leggendario`, `mitico` (senza distinzione tra maiuscole e minuscole). La rarità colora lo sfondo dell'avatar nella pagina principale. Se la cella è vuota, contiene `-` o il testo non è riconosciuto, lo sfondo non c'è. Nome e colore di ogni rarità si cambiano nel blocco `RARITIES` in cima ad `app.js`, dove si possono anche aggiungere o togliere rarità.
+- **File vecchi** (senza colonna rarità, `Nome; URL; varianti…`): vengono riconosciuti dall'intestazione (se la seconda cella parla di avatar o URL) oppure dal fatto che la seconda colonna contiene URL. In quel caso le rarità già impostate restano invariate. Con la colonna rarità, invece, il valore del file sostituisce quello attuale.
+- `-` indica un URL vuoto (nella colonna avatar il vecchio avatar viene mantenuto). Il numero di varianti può essere diverso da riga a riga. La riga di intestazione è facoltativa.
 - Le varianti **sostituiscono** quelle precedenti: dopo l'import l'elenco varianti contiene solo quelle presenti nel file, nell'ordine in cui compaiono. Nome e colore di una variante già esistente con lo stesso nome vengono mantenuti.
 - Gli spiritelli seguono l'**ordine del foglio**, non quello alfabetico.
 - La casella *Elimina gli spiritelli non presenti nel file* (spenta di default) permette di sostituire completamente l'elenco. Se è spenta, gli spiritelli non presenti nel file restano in fondo all'elenco, senza le varianti vecchie.
@@ -94,7 +96,7 @@ Visibile solo agli admin. Registra: caricamento di una nuova lista, aggiunta di 
 
 ## Struttura dei dati (Firestore)
 
-- `sprites/{id}`: `name`, `avatar`, `variants` (lista di chiavi), `order` (posizione nell'elenco)
+- `sprites/{id}`: `name`, `avatar`, `rarity` (chiave della rarità, es. `epico`; vuota = nessuna), `variants` (lista di chiavi), `order` (posizione nell'elenco)
 - `config/variants`: `list`, elenco globale ordinato di `{key, name, color}`
 - `users/{uid}`: `name`, `friends` (lista di UID), `states` (chiave `idSpiritello__chiaveVariante` con valore 1 = posseduto, 2 = incoronato; assente = non posseduto)
 - `log/{id}`: `text`, `ts`, `by`
@@ -111,6 +113,7 @@ Gli stati degli utenti usano la chiave della variante, non la sua posizione né 
 
 6. **Contatore e condivisione UID:** contatore posseduti/totale accanto al filtro; pulsanti WhatsApp e Discord per condividere il proprio UID nella finestra *Amici*.
 7. **Backup checklist:** esportazione e importazione della checklist personale in `txt`, con riepilogo e conferma prima dell'import.
+8. **Rarità:** nuova colonna nel formato di import ed export (dopo il nome) e menu nella modifica spiritello. Il colore corrispondente diventa lo sfondo dell'avatar; i colori sono definiti in `RARITIES` in cima ad `app.js`.
 
 ## Risoluzione dei problemi
 

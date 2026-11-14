@@ -15,7 +15,18 @@ const FIREBASE_CONFIG = {
 // 2) Email degli admin (devono coincidere con quelle nelle regole Firestore!)
 const ADMIN_EMAILS = ["pxyspam@gmail.com"];
 const DEFAULT_VARIANT_COLOR = "#ffd54a";
+// 3) Rarità: nome (scritto in minuscolo) -> colore esadecimale dello sfondo dell'avatar dello spiritello.
+//    Nel file di import/export il nome non distingue maiuscole e minuscole. Cambia i colori, aggiungi o togli voci qui:
+//    l'ordine di questo elenco è quello del menu nella modifica spiritello. Rarità vuota, "-" o non in elenco = nessuno sfondo.
+const RARITIES = {
+  raro:        "#2d9cff",
+  epico:       "#b45cff",
+  leggendario: "#ff9a1f",
+  mitico:      "#ffd83d"
+};
 /* ================================================================== */
+const rarityKey = r => { const k = String(r||"").trim().toLowerCase(); return Object.prototype.hasOwnProperty.call(RARITIES,k) ? k : ""; };
+const rarityColor = r => RARITIES[rarityKey(r)] || "";
 
 window.__appStarted = true;   // letto dallo script di diagnostica in index.html: se manca, app.js non è partito
 
@@ -107,7 +118,7 @@ function render(){
         <div class="fr">${who}</div></div>`;
     }).join("");
     return `<article class="sprite"><div class="bar">
-      ${sp.avatar?`<img class="av" src="${esc(sp.avatar)}" alt="" loading="lazy">`:`<div class="av"></div>`}
+      ${(rc=>sp.avatar?`<img class="av" src="${esc(sp.avatar)}" alt="" loading="lazy"${rc?` style="background:${esc(rc)}"`:""}>`:`<div class="av"${rc?` style="background:${esc(rc)}"`:""}></div>`)(rarityColor(sp.rarity))}
       <h2>${esc(sp.name)}</h2>
       ${isAdmin?`<button class="ghost" data-act="editSprite" data-s="${esc(sp.id)}">✎</button><button class="danger" data-act="delSprite" data-s="${esc(sp.id)}">🗑</button>`:""}
       </div><div class="cells">${cells||'<span class="muted">Nessuna variante</span>'}</div></article>`;
@@ -141,12 +152,14 @@ function dlgSprite(sp){
   const d = dlg(`<h3>${sp?"Modifica":"Nuovo"} spiritello</h3>
     <div class="row"><input id="sn" placeholder="Nome" value="${esc(sp?.name)}"></div>
     <div class="row"><input id="su" placeholder="URL avatar (vuoto = nessuno)" value="${esc(sp?.avatar)}"></div>
+    <div class="row"><span class="muted">Rarità (sfondo avatar):</span><select id="srar"><option value="">Nessuna</option>${Object.keys(RARITIES).map(k=>`<option value="${esc(k)}" ${rarityKey(sp?.rarity)===k?"selected":""}>${esc(k[0].toUpperCase()+k.slice(1))}</option>`).join("")}</select><span id="srsw" style="display:inline-block;width:22px;height:22px;border-radius:50%;border:2px solid var(--muted);background:${esc(rarityColor(sp?.rarity)||"transparent")}"></span></div>
     <p class="muted">Varianti presenti:</p><div>${variants.map(v=>`<label class="chk"><input type="checkbox" value="${esc(v.key)}" ${(sp?.variants||[]).includes(v.key)?"checked":""}><span style="color:${esc(v.color)}">${esc(v.name)}</span></label>`).join("")||"Crea prima delle varianti (🎨 Varianti)"}</div>
     <div class="row"><button id="ssave">Salva</button></div>`);
+  $("#srar").onchange = () => { $("#srsw").style.background = rarityColor($("#srar").value) || "transparent"; };
   $("#ssave").onclick = async () => {
     const name = $("#sn").value.trim(); if(!name) return toast("Nome mancante");
     const vs = [...d.querySelectorAll("input[type=checkbox]:checked")].map(c=>c.value);
-    const av=$("#su").value.trim(), data={name,avatar:av,variants:vs};
+    const av=$("#su").value.trim(), rar=rarityKey($("#srar").value), data={name,avatar:av,rarity:rar,variants:vs};
     if(!sp) data.order=Math.max(-1,...sprites.map(s=>s.order??-1))+1;
     await setDoc(doc(db,"sprites",sp?.id||slug(name)),data,{merge:true});
     if(!sp) logEv(`Aggiunto spiritello «${name}»`);
@@ -154,6 +167,7 @@ function dlgSprite(sp){
       const vn=k=>variants.find(v=>v.key===k)?.name||k, old=sp.variants||[], ch=[];
       if(sp.name!==name) ch.push(`nome cambiato da «${sp.name}» a «${name}»`);
       if((sp.avatar||"")!==av) ch.push("avatar modificato");
+      if(rarityKey(sp.rarity)!==rar) ch.push(`rarità cambiata da ${rarityKey(sp.rarity)||"nessuna"} a ${rar||"nessuna"}`);
       const add=vs.filter(k=>!old.includes(k)), rem=old.filter(k=>!vs.includes(k));
       if(add.length) ch.push("varianti aggiunte: "+add.map(vn).join(", "));
       if(rem.length) ch.push("varianti eliminate: "+rem.map(vn).join(", "));
@@ -229,20 +243,23 @@ async function readRows(f){
   const wb=XLSX.read(await f.arrayBuffer()); return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:""}).map(r=>r.map(c=>String(c).trim()));
 }
 function dlgImport(){
-  const d = dlg(`<h3>Importa spiritelli</h3><p class="muted">Una riga per spiritello: <b>Nome; URL (o -); variante1; variante2…</b><br>Formati: txt, csv, xlsx, ods. Le varianti vengono <b>sostituite</b> da quelle del file e gli spiritelli seguono l'ordine del foglio; quelli già esistenti vengono aggiornati.</p>
+  const d = dlg(`<h3>Importa spiritelli</h3><p class="muted">Una riga per spiritello: <b>Nome; rarità; URL (o -); variante1; variante2…</b><br>Rarità: ${Object.keys(RARITIES).join(", ")} oppure - (nessuno sfondo). Un file senza colonna rarità (<b>Nome; URL; varianti…</b>) viene riconosciuto e lascia invariate le rarità esistenti.<br>Formati: txt, csv, xlsx, ods. Le varianti vengono <b>sostituite</b> da quelle del file e gli spiritelli seguono l'ordine del foglio; quelli già esistenti vengono aggiornati.</p>
     <div class="row"><input type="file" id="ifile" accept=".txt,.csv,.xlsx,.xls,.ods"><button id="igo">Importa</button></div>
     <div class="row"><label class="chk"><input type="checkbox" id="irep">Elimina gli spiritelli non presenti nel file</label></div>`);
   $("#igo").onclick = async () => {
     const f=$("#ifile").files[0]; if(!f) return toast("Scegli un file");
-    let rows=(await readRows(f)).filter(r=>r[0]); if(rows.length&&/^(nome|name)$/i.test(rows[0][0])) rows.shift();
+    let rows=(await readRows(f)).filter(r=>r[0]); const header = rows.length&&/^(nome|name)$/i.test(rows[0][0]) ? rows.shift() : null;
+    // Colonna rarità presente? Con intestazione: se la 2ª cella non parla di avatar/URL. Senza: se nessuna riga ha un URL nella 2ª colonna.
+    const hasRar = header ? !/avatar|url|immagine|image|link/i.test(header[1]||"") : !rows.some(r=>/^(https?:)?\/\/|^data:/i.test(r[1]||""));
+    const ci = hasRar ? 2 : 1;   // indice della colonna avatar; le varianti iniziano subito dopo
     const vl=[];   // solo le varianti del nuovo file, nell'ordine di comparsa (nome/colore già scelti vengono mantenuti)
     const ops=rows.map(r=>{
-      const keys=r.slice(2).filter(Boolean).map(n=>{const k=slug(n); if(k&&!vl.some(v=>v.key===k)){const o=variants.find(v=>v.key===k); vl.push(o?{...o}:{key:k,name:n,color:DEFAULT_VARIANT_COLOR});} return k;}).filter(Boolean);
+      const keys=r.slice(ci+1).filter(Boolean).map(n=>{const k=slug(n); if(k&&!vl.some(v=>v.key===k)){const o=variants.find(v=>v.key===k); vl.push(o?{...o}:{key:k,name:n,color:DEFAULT_VARIANT_COLOR});} return k;}).filter(Boolean);
       const old=sprites.find(s=>s.id===slug(r[0]));
-      return {id:slug(r[0]),name:r[0],avatar:(r[1]&&r[1]!=="-")?r[1]:(old?.avatar||""),variants:[...new Set(keys)]};
+      return {id:slug(r[0]),name:r[0],avatar:(r[ci]&&r[ci]!=="-")?r[ci]:(old?.avatar||""),rarity:hasRar?rarityKey(r[1]):rarityKey(old?.rarity),variants:[...new Set(keys)]};
     }).filter(o=>o.id);
     const ids=new Set(ops.map(o=>o.id)), valid=new Set(vl.map(v=>v.key)), replace=$("#irep").checked;
-    const writes=ops.map((o,i)=>b=>b.set(doc(db,"sprites",o.id),{name:o.name,avatar:o.avatar,variants:o.variants,order:i}));  // order = riga del foglio
+    const writes=ops.map((o,i)=>b=>b.set(doc(db,"sprites",o.id),{name:o.name,avatar:o.avatar,rarity:o.rarity,variants:o.variants,order:i}));  // order = riga del foglio
     sprites.filter(s=>!ids.has(s.id)).forEach((s,i)=>writes.push(b=>replace ? b.delete(doc(db,"sprites",s.id)) : b.update(doc(db,"sprites",s.id),{order:ops.length+i,variants:(s.variants||[]).filter(k=>valid.has(k))})));
     await saveVariants(vl);
     for(let i=0;i<writes.length;i+=400){const b=writeBatch(db); writes.slice(i,i+400).forEach(w=>w(b)); await b.commit();}
@@ -254,7 +271,7 @@ function dlgExport(){
   const d = dlg(`<h3>Esporta database globale</h3><div class="row"><select id="efmt"><option value="csv">CSV</option><option value="txt">TXT</option><option value="xlsx">Excel (xlsx)</option><option value="ods">ODS</option></select><button id="ego">Scarica</button></div>`);
   $("#ego").onclick = () => {
     const vn=Object.fromEntries(variants.map(v=>[v.key,v.name]));
-    const rows=sprites.map(s=>[s.name,s.avatar||"-",...variants.filter(v=>(s.variants||[]).includes(v.key)).map(v=>vn[v.key])]);
+    const rows=sprites.map(s=>[s.name,rarityKey(s.rarity)||"-",s.avatar||"-",...variants.filter(v=>(s.variants||[]).includes(v.key)).map(v=>vn[v.key])]);
     const fmt=$("#efmt").value;
     if(fmt==="csv"||fmt==="txt") save(new Blob(["\uFEFF"+rows.map(r=>r.join(fmt==="csv"?";":"\t")).join("\n")],{type:"text/plain"}),"spiritelli."+fmt);
     else { const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),"Spiritelli"); XLSX.writeFile(wb,"spiritelli."+fmt,{bookType:fmt}); }
