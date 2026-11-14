@@ -24,9 +24,13 @@ const RARITIES = {
   leggendario: "#ff9a1f",
   mitico:      "#ffd83d"
 };
+// Sfumatura dello sfondo: parte dal colore pieno in alto e si scurisce verso il basso.
+// 0 = nessuna sfumatura (colore uniforme), 1 = nero in basso. Valori consigliati: 0.7 - 0.95.
+const RARITY_FADE = 0.9;
 /* ================================================================== */
 const rarityKey = r => { const k = String(r||"").trim().toLowerCase(); return Object.prototype.hasOwnProperty.call(RARITIES,k) ? k : ""; };
 const rarityColor = r => RARITIES[rarityKey(r)] || "";
+const rarityBg = c => c ? `linear-gradient(180deg,rgba(0,0,0,0) 0%,rgba(0,0,0,${RARITY_FADE}) 100%),${c}` : "";
 
 window.__appStarted = true;   // letto dallo script di diagnostica in index.html: se manca, app.js non è partito
 
@@ -118,7 +122,7 @@ function render(){
         <div class="fr">${who}</div></div>`;
     }).join("");
     return `<article class="sprite"><div class="bar">
-      ${(rc=>sp.avatar?`<img class="av" src="${esc(sp.avatar)}" alt="" loading="lazy"${rc?` style="background:${esc(rc)}"`:""}>`:`<div class="av"${rc?` style="background:${esc(rc)}"`:""}></div>`)(rarityColor(sp.rarity))}
+      ${(rc=>sp.avatar?`<img class="av" src="${esc(sp.avatar)}" alt="" loading="lazy"${rc?` style="background:${esc(rarityBg(rc))}"`:""}>`:`<div class="av"${rc?` style="background:${esc(rarityBg(rc))}"`:""}></div>`)(rarityColor(sp.rarity))}
       <h2>${esc(sp.name)}</h2>
       ${isAdmin?`<button class="ghost" data-act="editSprite" data-s="${esc(sp.id)}">✎</button><button class="danger" data-act="delSprite" data-s="${esc(sp.id)}">🗑</button>`:""}
       </div><div class="cells">${cells||'<span class="muted">Nessuna variante</span>'}</div></article>`;
@@ -152,10 +156,10 @@ function dlgSprite(sp){
   const d = dlg(`<h3>${sp?"Modifica":"Nuovo"} spiritello</h3>
     <div class="row"><input id="sn" placeholder="Nome" value="${esc(sp?.name)}"></div>
     <div class="row"><input id="su" placeholder="URL avatar (vuoto = nessuno)" value="${esc(sp?.avatar)}"></div>
-    <div class="row"><span class="muted">Rarità (sfondo avatar):</span><select id="srar"><option value="">Nessuna</option>${Object.keys(RARITIES).map(k=>`<option value="${esc(k)}" ${rarityKey(sp?.rarity)===k?"selected":""}>${esc(k[0].toUpperCase()+k.slice(1))}</option>`).join("")}</select><span id="srsw" style="display:inline-block;width:22px;height:22px;border-radius:50%;border:2px solid var(--muted);background:${esc(rarityColor(sp?.rarity)||"transparent")}"></span></div>
+    <div class="row"><span class="muted">Rarità (sfondo avatar):</span><select id="srar"><option value="">Nessuna</option>${Object.keys(RARITIES).map(k=>`<option value="${esc(k)}" ${rarityKey(sp?.rarity)===k?"selected":""}>${esc(k[0].toUpperCase()+k.slice(1))}</option>`).join("")}</select><span id="srsw" style="display:inline-block;width:22px;height:22px;border-radius:50%;border:2px solid var(--muted);background:${esc(rarityBg(rarityColor(sp?.rarity))||"transparent")}"></span></div>
     <p class="muted">Varianti presenti:</p><div>${variants.map(v=>`<label class="chk"><input type="checkbox" value="${esc(v.key)}" ${(sp?.variants||[]).includes(v.key)?"checked":""}><span style="color:${esc(v.color)}">${esc(v.name)}</span></label>`).join("")||"Crea prima delle varianti (🎨 Varianti)"}</div>
     <div class="row"><button id="ssave">Salva</button></div>`);
-  $("#srar").onchange = () => { $("#srsw").style.background = rarityColor($("#srar").value) || "transparent"; };
+  $("#srar").onchange = () => { $("#srsw").style.background = rarityBg(rarityColor($("#srar").value)) || "transparent"; };
   $("#ssave").onclick = async () => {
     const name = $("#sn").value.trim(); if(!name) return toast("Nome mancante");
     const vs = [...d.querySelectorAll("input[type=checkbox]:checked")].map(c=>c.value);
