@@ -149,7 +149,7 @@ function render(){
   }
   let tb = "";
   if(user) tb += `<select id="flt"><option value="all">Tutti</option><option value="avail">Solo disponibili</option><option value="owned">Solo posseduti</option><option value="missing">Solo mancanti</option></select>`;
-  tb += `<span class="sortbox pill"><span>Ordina per</span><select id="srt"><option value="added">Data di aggiunta</option><option value="rarity">Rarità</option><option value="alpha">Alfabetico</option></select><button class="ghost sdir${sortDir===1?" on":""}" data-act="sortAsc" title="Ordine crescente">▲</button><button class="ghost sdir${sortDir===-1?" on":""}" data-act="sortDesc" title="Ordine decrescente">▼</button></span>`;
+  tb += `<span class="sortbox pill"><span>Ordina per</span><select id="srt"><option value="added">Data</option><option value="rarity">Rarità</option><option value="alpha">Alfabetico</option></select><button class="ghost sdir${sortDir===1?" on":""}" data-act="sortAsc" title="Ordine crescente">▲</button><button class="ghost sdir${sortDir===-1?" on":""}" data-act="sortDesc" title="Ordine decrescente">▼</button></span>`;
   if(user) tb += `<span class="pill counter" title="Varianti possedute o incoronate / totale delle varianti disponibili di tutti gli spiritelli (tra parentesi: quante sono incoronate)">Posseduti: <b>${cnt.owned}</b> / ${cnt.total} (👑 ${cnt.crown})</span>
     <button data-act="friends">👥 Amici</button><button data-act="pdf">📄 PDF</button><button data-act="backup">💾 Backup</button>`;
   if(isAdmin) tb += `<button data-act="newSprite">＋ Spiritello</button><button data-act="variants">🎨 Varianti</button><button data-act="import">⬆ Importa</button><button data-act="export">⬇ Esporta</button><button data-act="log">📜 Log</button>`;
