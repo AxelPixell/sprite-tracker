@@ -75,6 +75,7 @@ let user = null, isAdmin = false;
 let sprites = [], variants = [];      // database globale
 let me = {}, friends = {}, friendUnsubs = {}, meUnsub = null;
 let filter = "all", pinned = new Set();
+let sortKey = "added", sortDir = 1;   // ordinamento: added (ordine di aggiunta/import), rarity, alpha; sortDir 1 = crescente, -1 = decrescente
 let loaded = false;   // diventa true alla prima risposta di Firestore
 let logs = [], logUnsub = null;   // registro modifiche (solo admin)
  
@@ -124,6 +125,18 @@ function showCell(sp,v){
   if(filter==="owned") return n>0 && !L;
   return n===0;
 }
+// "Ordina per": data di aggiunta = campo order (aggiunta con ＋ Spiritello oppure riga del file di import); rarità = ordine di RARITIES
+// (senza rarità sempre in fondo); alfabetico. Cambia solo la visualizzazione, non i dati.
+function sortedSprites(){
+  const ri = s => { const k = rarityKey(s.rarity); return k ? Object.keys(RARITIES).indexOf(k) : -1; };
+  const byOrder = (a,b) => (a.order??1e9)-(b.order??1e9) || a.name.localeCompare(b.name);
+  const cmp = {
+    added:  (a,b) => byOrder(a,b)*sortDir,
+    alpha:  (a,b) => a.name.localeCompare(b.name,"it",{sensitivity:"base"})*sortDir || byOrder(a,b),
+    rarity: (a,b) => { const x=ri(a), y=ri(b); return (x<0||y<0) ? (x<0)-(y<0) || byOrder(a,b) : (x-y)*sortDir || byOrder(a,b); }
+  }[sortKey] || ((a,b)=>byOrder(a,b));
+  return [...sprites].sort(cmp);
+}
 function render(){
   $("#auth").innerHTML = user
     ? `<span class="muted">${esc(user.displayName)}${isAdmin?" (admin)":""}</span> <button class="ghost" data-act="logout">Esci</button>`
@@ -135,13 +148,14 @@ function render(){
     sprites.forEach(sp => (sp.variants||[]).forEach(k => { if(!vm0[k] || lockInfo(sp,vm0[k])) return; cnt.total++; const n = stateOf(sp.id,k); if(n>0) cnt.owned++; if(n===2) cnt.crown++; }));
   }
   let tb = "";
-  if(user) tb += `<select id="flt"><option value="all">Tutti</option><option value="avail">Solo disponibili</option><option value="owned">Solo posseduti</option><option value="missing">Solo mancanti</option></select>
-    <span class="counter" title="Varianti possedute o incoronate / totale delle varianti disponibili di tutti gli spiritelli (tra parentesi: quante sono incoronate)">Posseduti: <b>${cnt.owned}</b> / ${cnt.total} (👑 ${cnt.crown})</span>
+  if(user) tb += `<select id="flt"><option value="all">Tutti</option><option value="avail">Solo disponibili</option><option value="owned">Solo posseduti</option><option value="missing">Solo mancanti</option></select>`;
+  tb += `<span class="sortbox"><span class="muted">Ordina per</span><select id="srt"><option value="added">Data di aggiunta</option><option value="rarity">Rarità</option><option value="alpha">Alfabetico</option></select><button class="ghost sdir${sortDir===1?" on":""}" data-act="sortAsc" title="Ordine crescente">▲</button><button class="ghost sdir${sortDir===-1?" on":""}" data-act="sortDesc" title="Ordine decrescente">▼</button></span>`;
+  if(user) tb += `<span class="counter" title="Varianti possedute o incoronate / totale delle varianti disponibili di tutti gli spiritelli (tra parentesi: quante sono incoronate)">Posseduti: <b>${cnt.owned}</b> / ${cnt.total} (👑 ${cnt.crown})</span>
     <button data-act="friends">👥 Amici</button><button data-act="pdf">📄 PDF</button><button data-act="backup">💾 Backup</button>`;
   if(isAdmin) tb += `<button data-act="newSprite">＋ Spiritello</button><button data-act="variants">🎨 Varianti</button><button data-act="import">⬆ Importa</button><button data-act="export">⬇ Esporta</button><button data-act="log">📜 Log</button>`;
-  $("#toolbar").innerHTML = tb; if($("#flt")) $("#flt").value = filter;
+  $("#toolbar").innerHTML = tb; if($("#flt")) $("#flt").value = filter; $("#srt").value = sortKey;
   const vmap = Object.fromEntries(variants.map(v=>[v.key,v]));
-  const list = sprites.map(sp => {
+  const list = sortedSprites().map(sp => {
     const allv = variants.filter(v=>(sp.variants||[]).includes(v.key));
     const allLocked = allv.length>0 && allv.every(v=>lockInfo(sp,v));   // riga tutta non disponibile: viene oscurata
     const vs = allv.filter(v=>showCell(sp,v));
@@ -169,7 +183,10 @@ function render(){
 (function midnightTick(){ const n=new Date(), next=new Date(n.getFullYear(),n.getMonth(),n.getDate()+1,0,0,2); setTimeout(()=>{ render(); midnightTick(); }, next-n); })();
 
 /* ---------- Eventi ---------- */
-document.addEventListener("change", e => { if(e.target.id==="flt"){filter=e.target.value;pinned.clear();render();} });
+document.addEventListener("change", e => {
+  if(e.target.id==="flt"){filter=e.target.value;pinned.clear();render();}
+  if(e.target.id==="srt"){sortKey=e.target.value;render();}
+});
 document.addEventListener("click", async e => {
   const cell = e.target.closest(".cell");
   if(cell && !e.target.closest("dialog")){
@@ -184,7 +201,7 @@ document.addEventListener("click", async e => {
   const a = b.dataset.act, sp = sprites.find(x=>x.id===b.dataset.s);
   ({login, logout:()=>signOut(auth), friends:dlgFriends, pdf:dlgPdf, backup:dlgBackup, newSprite:()=>dlgSprite(), editSprite:()=>dlgSprite(sp),
     delSprite:async()=>{ if(confirm(`Eliminare ${sp.name}?`)) { await deleteDoc(doc(db,"sprites",sp.id)); logEv(`Eliminato spiritello «${sp.name}»`); } },
-    variants:dlgVariants, import:dlgImport, export:dlgExport, log:dlgLog}[a]||(()=>{}))();
+    sortAsc:()=>{sortDir=1;render();}, sortDesc:()=>{sortDir=-1;render();}, variants:dlgVariants, import:dlgImport, export:dlgExport, log:dlgLog}[a]||(()=>{}))();
 });
 function dlg(html,closeLabel="Chiudi"){const d=$("#dlg");d.innerHTML=html+`<div class="row"><button class="ghost" id="dclose">${closeLabel}</button></div>`;d.showModal();$("#dclose").onclick=()=>d.close();return d}
  

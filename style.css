@@ -102,3 +102,8 @@ dialog h3{margin-top:0;font-family:var(--font-title);font-weight:400;font-size:1
 #toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#2a170b;color:var(--text);border:3px solid var(--crown);
   padding:10px 16px;border-radius:12px;box-shadow:0 4px 0 var(--outline);opacity:0;pointer-events:none;transition:.3s;max-width:90vw;z-index:10}
 #toast.on{opacity:1}
+
+/* Ordina per */
+.sortbox{display:inline-flex;align-items:center;gap:6px}
+button.ghost.sdir{padding:3px 10px;font-size:.8rem}
+button.ghost.sdir.on{background:var(--accent);color:var(--accent-text)}

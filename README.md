@@ -57,6 +57,7 @@ Note di sicurezza:
 
 ### Per gli utenti loggati (Google)
 - **Stati:** un click o tap su una variante la fa passare da *non posseduta* a *posseduta* (✓), poi a *incoronata* (👑), poi di nuovo a *non posseduta*. L'utente salva solo il proprio stato.
+- **Ordina per:** accanto al filtro (visibile anche senza login) si sceglie il criterio, *Data di aggiunta*, *Rarità* o *Alfabetico*, e con le frecce ▲ (crescente) e ▼ (decrescente) il verso. *Data di aggiunta* segue l'ordine in cui gli spiritelli sono stati aggiunti; per quelli importati da file vale l'ordine delle righe del file. *Rarità* segue l'ordine di `RARITIES` in `app.js` (di default raro, epico, leggendario, mitico); gli spiritelli senza rarità restano sempre in fondo. A parità di criterio si usa l'ordine di aggiunta. L'ordinamento cambia solo la visualizzazione: non modifica i dati, l'esportazione e il PDF.
 - **Filtro:** *Tutti* (mostra anche i non disponibili), *Solo disponibili*, *Solo posseduti* (senza i non disponibili), *Solo mancanti* (include i non disponibili). Il filtro agisce sulle singole varianti: in ogni riga restano visibili solo quelle che lo soddisfano. Una variante appena toccata resta visibile finché non si cambia filtro.
 - **Non disponibile:** una variante non ancora disponibile mostra un lucchetto al posto del bollino, il nome oscurato e la data di rilascio (o *data da definire*); non si può segnare. Se tutte le varianti di una riga non sono disponibili, la riga (avatar compreso) è oscurata. Le varianti non disponibili non contano nel totale del contatore e non sono tra i *mancanti* del PDF.
 - **Contatore:** accanto al filtro mostra *Posseduti: X / Y*. Ogni variante di ogni spiritello conta come un elemento; posseduta e incoronata contano entrambe come possedute, e tra parentesi (👑 N) compare quante sono incoronate. Il conteggio non dipende dal filtro scelto.
@@ -120,6 +121,7 @@ Gli stati degli utenti usano la chiave della variante, non la sua posizione né 
 8. **Rarità:** nuova colonna nel formato di import ed export (dopo il nome) e menu nella modifica spiritello. Il colore corrispondente diventa lo sfondo dell'avatar; i colori sono definiti in `RARITIES` in cima ad `app.js`.
 9. **Non disponibile:** spiritelli e varianti non ancora rilasciati, con data di rilascio, lucchetto, riga oscurata e nuove colonne nel formato di import ed export.
 10. **Disponibilità automatica e filtri:** la data di rilascio rende disponibili spiritelli e varianti in automatico; nuovo filtro *Solo disponibili*; *Solo posseduti* nasconde i non disponibili, *Solo mancanti* li mostra.
+11. **Ordina per:** ordinamento per data di aggiunta, rarità o alfabetico, crescente o decrescente.
 
 ## Risoluzione dei problemi
 

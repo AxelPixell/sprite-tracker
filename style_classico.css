@@ -79,3 +79,8 @@ dialog h3{margin-top:0}
 .sprite.dim{filter:brightness(.55) saturate(.45)}
 .bar h2 small{font-size:.75rem;color:var(--muted);font-weight:400;margin-left:6px;white-space:nowrap}
 .vrr{margin:4px 0}
+
+/* Ordina per */
+.sortbox{display:inline-flex;align-items:center;gap:6px}
+button.ghost.sdir{padding:3px 10px;font-size:.8rem}
+button.ghost.sdir.on{background:var(--accent);color:var(--accent-text)}
