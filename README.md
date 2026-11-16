@@ -57,7 +57,8 @@ Note di sicurezza:
 
 ### Per gli utenti loggati (Google)
 - **Stati:** un click o tap su una variante la fa passare da *non posseduta* a *posseduta* (✓), poi a *incoronata* (👑), poi di nuovo a *non posseduta*. L'utente salva solo il proprio stato.
-- **Filtro:** *Tutti*, *Solo posseduti*, *Solo mancanti*. Il filtro agisce sulle singole varianti: in ogni riga restano visibili solo quelle possedute (o mancanti). Una variante appena toccata resta visibile finché non si cambia filtro.
+- **Filtro:** *Tutti* (mostra anche i non disponibili), *Solo disponibili*, *Solo posseduti* (senza i non disponibili), *Solo mancanti* (include i non disponibili). Il filtro agisce sulle singole varianti: in ogni riga restano visibili solo quelle che lo soddisfano. Una variante appena toccata resta visibile finché non si cambia filtro.
+- **Non disponibile:** una variante non ancora disponibile mostra un lucchetto al posto del bollino, il nome oscurato e la data di rilascio (o *data da definire*); non si può segnare. Se tutte le varianti di una riga non sono disponibili, la riga (avatar compreso) è oscurata. Le varianti non disponibili non contano nel totale del contatore e non sono tra i *mancanti* del PDF.
 - **Contatore:** accanto al filtro mostra *Posseduti: X / Y*. Ogni variante di ogni spiritello conta come un elemento; posseduta e incoronata contano entrambe come possedute, e tra parentesi (👑 N) compare quante sono incoronate. Il conteggio non dipende dal filtro scelto.
 - **Amici:** si aggiungono tramite UID (visibile nella finestra *👥 Amici*, dove ci sono anche i pulsanti per condividere il proprio UID su WhatsApp, che apre la chat con il messaggio pronto, e su Discord, che copia il messaggio negli appunti e apre Discord: va incollato nella chat). Sotto ogni variante compaiono i nomi degli amici che la possiedono (incoronata vale come posseduta), in un colore sempre leggibile anche se la variante dell'utente è oscurata.
 - **Backup (💾):** la finestra *Backup* permette di esportare e importare la propria checklist in un file `txt`.
@@ -66,11 +67,12 @@ Note di sicurezza:
 - **PDF:** *📄 PDF* esporta la lista personale (incoronati, posseduti e mancanti per ogni spiritello). Si può condividere su WhatsApp o Discord (da smartphone si apre il menu di condivisione; da PC il PDF viene scaricato e si apre l'app) oppure salvare sul dispositivo.
 
 ### Per gli admin
-- **＋ Spiritello:** crea una riga con nome, URL dell'avatar e varianti presenti.
+- **＋ Spiritello:** crea una riga con nome, URL dell'avatar, rarità e varianti presenti. Con la casella *Non disponibile* si indica la data di rilascio dello spiritello (vuota = a tempo indeterminato) e la data di ogni variante; la spunta *Applica la data a tutte le varianti* copia la data dello spiritello su tutte. Tutte le varianti di uno spiritello non disponibile risultano non disponibili. Alla data di rilascio (data del dispositivo, dalle 00:00; la pagina si aggiorna da sola a mezzanotte) lo spiritello e le sue varianti diventano disponibili in automatico; se la data di una variante è successiva a quella dello spiritello vale la più tarda. Con la data vuota restano non disponibili finché l'admin non toglie la spunta *Non disponibile* dalla modifica (✎), cosa possibile anche prima della data. La spunta resta salvata anche dopo la data: puoi toglierla quando vuoi.
 - **✎ / 🗑 su ogni riga:** modifica nome, avatar, rarità (sfondo dell'avatar) e varianti dello spiritello, oppure lo elimina.
 - **🎨 Varianti:** le varianti sono globali, cioè hanno lo stesso nome e colore per tutti gli spiritelli.
   - modifica di nome e colore di ogni variante;
-  - creazione di una nuova variante, con l'opzione di aggiungerla a tutti gli spiritelli esistenti;
+  - creazione di una nuova variante, con l'opzione di aggiungerla a tutti gli spiritelli esistenti e di crearla *non disponibile* (con data di rilascio, vuota = a tempo indeterminato);
+  - per ogni variante, spunta *non disp.* e data di rilascio modificabili in qualsiasi momento (vale per tutti gli spiritelli);
   - eliminazione di una variante (viene tolta da tutti gli spiritelli);
   - **riordino con le frecce ▲▼** a sinistra di ogni variante: sposta la variante su o giù e salva subito l'ordine. L'ordine vale per tutti gli spiritelli e non tocca i dati degli utenti.
 - **⬆ Importa:** carica un elenco da file `txt`, `csv`, `xlsx` o `ods`.
@@ -81,11 +83,13 @@ Note di sicurezza:
 Una riga per spiritello, con campi separati da `;`, tab o virgola:
 
 ```
-Nome; rarità (oppure -); URL avatar (oppure -); variante1; variante2; ...
+Nome; rarità (oppure -); disponibilità; data di rilascio (oppure -); URL avatar (oppure -); variante1; variante2; ...
 ```
 
 - **Rarità:** `raro`, `epico`, `leggendario`, `mitico` (senza distinzione tra maiuscole e minuscole). La rarità colora lo sfondo dell'avatar nella pagina principale, con una sfumatura che parte dal colore pieno in alto e si scurisce scendendo (intensità regolabile con `RARITY_FADE` in cima ad `app.js`). Se la cella è vuota, contiene `-` o il testo non è riconosciuto, lo sfondo non c'è. Nome e colore di ogni rarità si cambiano nel blocco `RARITIES` in cima ad `app.js`, dove si possono anche aggiungere o togliere rarità.
 - **File vecchi** (senza colonna rarità, `Nome; URL; varianti…`): vengono riconosciuti dall'intestazione (se la seconda cella parla di avatar o URL) oppure dal fatto che la seconda colonna contiene URL. In quel caso le rarità già impostate restano invariate. Con la colonna rarità, invece, il valore del file sostituisce quello attuale.
+- **Disponibilità e data di rilascio:** `disponibile` oppure `non disponibile`; la data si scrive `AAAA-MM-GG` o `GG/MM/AAAA` (da Excel vanno bene anche le celle data) ed è letta solo per gli spiritelli non disponibili. Data vuota, `-` o non leggibile = a tempo indeterminato. La disponibilità delle singole varianti e le loro date non fanno parte del file: si gestiscono dalla finestra *Varianti* (e dalla modifica dello spiritello).
+- **Formati precedenti:** `Nome; rarità; URL; varianti…` e `Nome; URL; varianti…` vengono ancora riconosciuti (dall'intestazione, oppure dal contenuto della 2ª e 3ª colonna) e lasciano invariate disponibilità e rarità esistenti.
 - `-` indica un URL vuoto (nella colonna avatar il vecchio avatar viene mantenuto). Il numero di varianti può essere diverso da riga a riga. La riga di intestazione è facoltativa.
 - Le varianti **sostituiscono** quelle precedenti: dopo l'import l'elenco varianti contiene solo quelle presenti nel file, nell'ordine in cui compaiono. Nome e colore di una variante già esistente con lo stesso nome vengono mantenuti.
 - Gli spiritelli seguono l'**ordine del foglio**, non quello alfabetico.
@@ -96,8 +100,8 @@ Visibile solo agli admin. Registra: caricamento di una nuova lista, aggiunta di 
 
 ## Struttura dei dati (Firestore)
 
-- `sprites/{id}`: `name`, `avatar`, `rarity` (chiave della rarità, es. `epico`; vuota = nessuna), `variants` (lista di chiavi), `order` (posizione nell'elenco)
-- `config/variants`: `list`, elenco globale ordinato di `{key, name, color}`
+- `sprites/{id}`: `name`, `avatar`, `rarity` (chiave della rarità, es. `epico`; vuota = nessuna), `na` (non disponibile), `rel` (data di rilascio `AAAA-MM-GG`, vuota = indeterminata), `vrel` (data per ogni variante: chiave variante → data), `variants` (lista di chiavi), `order` (posizione nell'elenco)
+- `config/variants`: `list`, elenco globale ordinato di `{key, name, color}` più, se non disponibile, `na: true` e `rel`
 - `users/{uid}`: `name`, `friends` (lista di UID), `states` (chiave `idSpiritello__chiaveVariante` con valore 1 = posseduto, 2 = incoronato; assente = non posseduto)
 - `log/{id}`: `text`, `ts`, `by`
 
@@ -114,6 +118,8 @@ Gli stati degli utenti usano la chiave della variante, non la sua posizione né 
 6. **Contatore e condivisione UID:** contatore posseduti/totale accanto al filtro; pulsanti WhatsApp e Discord per condividere il proprio UID nella finestra *Amici*.
 7. **Backup checklist:** esportazione e importazione della checklist personale in `txt`, con riepilogo e conferma prima dell'import.
 8. **Rarità:** nuova colonna nel formato di import ed export (dopo il nome) e menu nella modifica spiritello. Il colore corrispondente diventa lo sfondo dell'avatar; i colori sono definiti in `RARITIES` in cima ad `app.js`.
+9. **Non disponibile:** spiritelli e varianti non ancora rilasciati, con data di rilascio, lucchetto, riga oscurata e nuove colonne nel formato di import ed export.
+10. **Disponibilità automatica e filtri:** la data di rilascio rende disponibili spiritelli e varianti in automatico; nuovo filtro *Solo disponibili*; *Solo posseduti* nasconde i non disponibili, *Solo mancanti* li mostra.
 
 ## Risoluzione dei problemi
 

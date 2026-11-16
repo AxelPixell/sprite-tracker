@@ -80,6 +80,16 @@ input[type=color]{padding:0;width:42px;height:36px;background:none}
 .s2 .tile{border-color:var(--crown);box-shadow:0 0 12px var(--crown)}
 .s2 .dot{background:var(--crown);border-color:var(--outline)}
 .s2 .dot::after{content:"👑"}
+/* Non disponibile: lucchetto al posto del bollino, nome oscurato anche se ha un colore; riga tutta non disponibile oscurata */
+.cell.lock{cursor:not-allowed}
+.lock:hover .tile{transform:none}
+.lock .dot{border:0;background:none;filter:none;opacity:1}
+.lock .dot::after{content:"🔒";font-size:1.05rem}
+.lock .vname{filter:grayscale(1) brightness(.45)}
+.fr.rel{color:var(--muted);font-size:.72rem}
+.sprite.dim{filter:brightness(.55) saturate(.45)}
+.bar h2 small{font-family:var(--font);font-size:.75rem;color:var(--muted);text-shadow:none;margin-left:6px;white-space:nowrap}
+.vrr{margin:4px 0}
 .fr{color:var(--friend);font-size:.78rem;margin-top:3px;min-height:1em;overflow-wrap:anywhere}
 dialog{background:var(--card);color:var(--text);border:4px solid var(--outline);border-radius:var(--radius);
   box-shadow:0 6px 0 var(--outline),inset 0 0 0 2px var(--card-border);width:min(560px,94vw);max-height:90vh}

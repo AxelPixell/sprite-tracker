@@ -69,3 +69,13 @@ dialog h3{margin-top:0}
 .chk{display:inline-flex;gap:5px;align-items:center;margin-right:10px}
 #toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#000d;color:#fff;padding:10px 16px;border-radius:10px;opacity:0;pointer-events:none;transition:.3s;max-width:90vw}
 #toast.on{opacity:1}
+
+/* Non disponibile: lucchetto al posto del bollino, nome oscurato anche se ha un colore; riga tutta non disponibile oscurata */
+.cell.lock{cursor:not-allowed}
+.lock .dot{border:0;background:none;filter:none;opacity:1}
+.lock .dot::after{content:"🔒";font-size:1.05rem}
+.lock .vname{filter:grayscale(1) brightness(.45)}
+.fr.rel{color:var(--muted);font-size:.72rem}
+.sprite.dim{filter:brightness(.55) saturate(.45)}
+.bar h2 small{font-size:.75rem;color:var(--muted);font-weight:400;margin-left:6px;white-space:nowrap}
+.vrr{margin:4px 0}

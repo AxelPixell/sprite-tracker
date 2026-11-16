@@ -30,6 +30,32 @@ const RARITY_FADE = 0.9;
 /* ================================================================== */
 const rarityKey = r => { const k = String(r||"").trim().toLowerCase(); return Object.prototype.hasOwnProperty.call(RARITIES,k) ? k : ""; };
 const rarityColor = r => RARITIES[rarityKey(r)] || "";
+// Disponibilità. Spiritello: na (non disponibile), rel (data di rilascio AAAA-MM-GG, vuota = a tempo indeterminato),
+// vrel (data di rilascio di ogni variante, {chiaveVariante: data}). Variante globale: na, rel.
+// Alla data di rilascio (data del dispositivo, dalle 00:00) spiritello e varianti diventano disponibili in automatico; con data vuota restano
+// non disponibili finché l'admin non toglie la spunta. Se la data di una variante è successiva a quella dello spiritello vale la più tarda.
+const fmtDate = d => /^\d{4}-\d{2}-\d{2}$/.test(d||"") ? d.split("-").reverse().join("/") : "";
+const relText = d => d ? "dal "+fmtDate(d) : "data da definire";
+function isoDate(y,m,d){ y=+y; m=+m; d=+d; const t=new Date(Date.UTC(y,m-1,d)); return t.getUTCFullYear()===y&&t.getUTCMonth()===m-1&&t.getUTCDate()===d ? `${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}` : ""; }
+function parseDate(v){   // accetta AAAA-MM-GG, GG/MM/AAAA e i numeri-data di Excel; altro (anche "-") = nessuna data
+  const s = String(v??"").trim(); let m;
+  if(!s || s==="-") return "";
+  if((m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) return isoDate(m[1],m[2],m[3]);
+  if((m = s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})$/))) return isoDate(m[3],m[2],m[1]);
+  if(/^\d{5}$/.test(s)){ const t = new Date(Math.round((+s-25569)*86400000)); return isoDate(t.getUTCFullYear(),t.getUTCMonth()+1,t.getUTCDate()); }
+  return "";
+}
+// null = disponibile; altrimenti {date} = data in cui lo diventerà ("" = indeterminata).
+// Ogni blocco (spiritello, variante globale) è attivo se la sua data è vuota o futura; se più blocchi sono attivi vale la data più tarda.
+const spLocked = sp => !!sp.na && (!sp.rel || sp.rel > todayStr());
+function lockInfo(sp,v){
+  const t = todayStr(), L = [];
+  if(sp.na){ const vd = sp.vrel && v.key in sp.vrel ? sp.vrel[v.key] : sp.rel; L.push(!sp.rel || !vd ? "" : (sp.rel > vd ? sp.rel : vd)); }
+  if(v.na) L.push(v.rel||"");
+  const open = L.filter(d => !d || d > t);
+  if(!open.length) return null;
+  return {date: open.includes("") ? "" : open.reduce((x,y)=>x>y?x:y)};
+}
 const rarityBg = c => c ? `linear-gradient(180deg,rgba(0,0,0,0) 0%,rgba(0,0,0,${RARITY_FADE}) 100%),${c}` : "";
 
 window.__appStarted = true;   // letto dallo script di diagnostica in index.html: se manca, app.js non è partito
@@ -90,9 +116,13 @@ function syncFriends(){
 /* ---------- Rendering ---------- */
 const stateOf = (sid,vk) => (me.states||{})[sid+"__"+vk] || 0;
 // Il filtro agisce sulle singole varianti; quelle appena toccate restano visibili finché non cambi filtro
-function showCell(sid,vk){
-  if(!user||filter==="all"||pinned.has(sid+"__"+vk)) return true;
-  const n=stateOf(sid,vk); return filter==="owned" ? n>0 : n===0;
+// Filtri: Tutti = tutto; Solo disponibili = senza i non disponibili; Solo posseduti = senza i non disponibili; Solo mancanti = include i non disponibili
+function showCell(sp,v){
+  if(!user||filter==="all"||pinned.has(sp.id+"__"+v.key)) return true;
+  const n=stateOf(sp.id,v.key), L=lockInfo(sp,v);
+  if(filter==="avail") return !L;
+  if(filter==="owned") return n>0 && !L;
+  return n===0;
 }
 function render(){
   $("#auth").innerHTML = user
@@ -101,29 +131,32 @@ function render(){
   // Contatore: ogni variante di ogni spiritello conta come un elemento; posseduta e incoronata contano entrambe come "possedute"
   const cnt = {owned:0, crown:0, total:0};
   if(user){
-    const keys = new Set(variants.map(v=>v.key));
-    sprites.forEach(sp => (sp.variants||[]).forEach(k => { if(!keys.has(k)) return; cnt.total++; const n = stateOf(sp.id,k); if(n>0) cnt.owned++; if(n===2) cnt.crown++; }));
+    const vm0 = Object.fromEntries(variants.map(v=>[v.key,v]));   // le varianti non disponibili non si possono avere: non contano nel totale
+    sprites.forEach(sp => (sp.variants||[]).forEach(k => { if(!vm0[k] || lockInfo(sp,vm0[k])) return; cnt.total++; const n = stateOf(sp.id,k); if(n>0) cnt.owned++; if(n===2) cnt.crown++; }));
   }
   let tb = "";
-  if(user) tb += `<select id="flt"><option value="all">Tutti</option><option value="owned">Solo posseduti</option><option value="missing">Solo mancanti</option></select>
-    <span class="counter" title="Varianti possedute o incoronate / totale delle varianti di tutti gli spiritelli (tra parentesi: quante sono incoronate)">Posseduti: <b>${cnt.owned}</b> / ${cnt.total} (👑 ${cnt.crown})</span>
+  if(user) tb += `<select id="flt"><option value="all">Tutti</option><option value="avail">Solo disponibili</option><option value="owned">Solo posseduti</option><option value="missing">Solo mancanti</option></select>
+    <span class="counter" title="Varianti possedute o incoronate / totale delle varianti disponibili di tutti gli spiritelli (tra parentesi: quante sono incoronate)">Posseduti: <b>${cnt.owned}</b> / ${cnt.total} (👑 ${cnt.crown})</span>
     <button data-act="friends">👥 Amici</button><button data-act="pdf">📄 PDF</button><button data-act="backup">💾 Backup</button>`;
   if(isAdmin) tb += `<button data-act="newSprite">＋ Spiritello</button><button data-act="variants">🎨 Varianti</button><button data-act="import">⬆ Importa</button><button data-act="export">⬇ Esporta</button><button data-act="log">📜 Log</button>`;
   $("#toolbar").innerHTML = tb; if($("#flt")) $("#flt").value = filter;
   const vmap = Object.fromEntries(variants.map(v=>[v.key,v]));
   const list = sprites.map(sp => {
-    const vs = variants.filter(v=>(sp.variants||[]).includes(v.key) && showCell(sp.id,v.key));
+    const allv = variants.filter(v=>(sp.variants||[]).includes(v.key));
+    const allLocked = allv.length>0 && allv.every(v=>lockInfo(sp,v));   // riga tutta non disponibile: viene oscurata
+    const vs = allv.filter(v=>showCell(sp,v));
     if(user && filter!=="all" && !vs.length) return "";
     const cells = vs.map(v => {
       const n = stateOf(sp.id,v.key);
       const who = Object.values(friends).filter(f=>((f.states||{})[sp.id+"__"+v.key]||0)>0).map(f=>esc(f.name)).join(", ");
-      return `<div class="cell s${n}" data-s="${esc(sp.id)}" data-v="${esc(v.key)}" title="${STATES[n]}">
+      const L = lockInfo(sp,v);
+      return `<div class="cell ${L?"s0 lock":"s"+n}" data-s="${esc(sp.id)}" data-v="${esc(v.key)}" title="${L?"Non disponibile ("+esc(relText(L.date))+")":STATES[n]}">
         <div class="tile"><span class="dot"></span><span class="vname" style="color:${esc(v.color)}">${esc(v.name)}</span></div>
-        <div class="fr">${who}</div></div>`;
+        <div class="fr${L?" rel":""}">${L?"🗓 "+esc(relText(L.date)):who}</div></div>`;
     }).join("");
-    return `<article class="sprite"><div class="bar">
+    return `<article class="sprite${allLocked?" dim":""}"><div class="bar">
       ${(rc=>sp.avatar?`<img class="av" src="${esc(sp.avatar)}" alt="" loading="lazy"${rc?` style="background:${esc(rarityBg(rc))}"`:""}>`:`<div class="av"${rc?` style="background:${esc(rarityBg(rc))}"`:""}></div>`)(rarityColor(sp.rarity))}
-      <h2>${esc(sp.name)}</h2>
+      <h2>${esc(sp.name)}${spLocked(sp)?` <small>🔒 ${esc(sp.rel?"rilascio "+fmtDate(sp.rel):"rilascio da definire")}</small>`:""}</h2>
       ${isAdmin?`<button class="ghost" data-act="editSprite" data-s="${esc(sp.id)}">✎</button><button class="danger" data-act="delSprite" data-s="${esc(sp.id)}">🗑</button>`:""}
       </div><div class="cells">${cells||'<span class="muted">Nessuna variante</span>'}</div></article>`;
   }).join("");
@@ -132,12 +165,16 @@ function render(){
     : (list || '<p class="muted">Nessuno spiritello da mostrare.</p>');
 }
  
+// A mezzanotte ricalcola la disponibilità (data di rilascio raggiunta) senza dover ricaricare la pagina
+(function midnightTick(){ const n=new Date(), next=new Date(n.getFullYear(),n.getMonth(),n.getDate()+1,0,0,2); setTimeout(()=>{ render(); midnightTick(); }, next-n); })();
+
 /* ---------- Eventi ---------- */
 document.addEventListener("change", e => { if(e.target.id==="flt"){filter=e.target.value;pinned.clear();render();} });
 document.addEventListener("click", async e => {
   const cell = e.target.closest(".cell");
   if(cell && !e.target.closest("dialog")){
     if(!user) return toast("Accedi con Google per segnare i tuoi spiritelli");
+    if(cell.classList.contains("lock")) return toast("Non ancora disponibile");
     const {s,v}=cell.dataset, n=(stateOf(s,v)+1)%3;
     pinned.add(s+"__"+v);
     await setDoc(doc(db,"users",user.uid),{states:{[s+"__"+v]: n===0?deleteField():n}},{merge:true});
@@ -153,25 +190,49 @@ function dlg(html,closeLabel="Chiudi"){const d=$("#dlg");d.innerHTML=html+`<div 
  
 /* ---------- Admin: spiritello ---------- */
 function dlgSprite(sp){
+  // "Applica la data a tutte le varianti" parte spuntato se le date delle varianti coincidono con quella dello spiritello
+  const allSame = !sp || !sp.na || (sp.variants||[]).every(k => !sp.vrel || !(k in sp.vrel) || sp.vrel[k]===(sp.rel||""));
   const d = dlg(`<h3>${sp?"Modifica":"Nuovo"} spiritello</h3>
     <div class="row"><input id="sn" placeholder="Nome" value="${esc(sp?.name)}"></div>
     <div class="row"><input id="su" placeholder="URL avatar (vuoto = nessuno)" value="${esc(sp?.avatar)}"></div>
     <div class="row"><span class="muted">Rarità (sfondo avatar):</span><select id="srar"><option value="">Nessuna</option>${Object.keys(RARITIES).map(k=>`<option value="${esc(k)}" ${rarityKey(sp?.rarity)===k?"selected":""}>${esc(k[0].toUpperCase()+k.slice(1))}</option>`).join("")}</select><span id="srsw" style="display:inline-block;width:22px;height:22px;border-radius:50%;border:2px solid var(--muted);background:${esc(rarityBg(rarityColor(sp?.rarity))||"transparent")}"></span></div>
-    <p class="muted">Varianti presenti:</p><div>${variants.map(v=>`<label class="chk"><input type="checkbox" value="${esc(v.key)}" ${(sp?.variants||[]).includes(v.key)?"checked":""}><span style="color:${esc(v.color)}">${esc(v.name)}</span></label>`).join("")||"Crea prima delle varianti (🎨 Varianti)"}</div>
+    <div class="row"><label class="chk"><input type="checkbox" id="sna" ${sp?.na?"checked":""}>Non disponibile</label>${sp?.na&&sp.rel&&sp.rel<=todayStr()?' <span class="muted">(data di rilascio raggiunta: risulta già disponibile)</span>':""}</div>
+    <div id="narea">
+      <div class="row"><span class="muted">Data di rilascio (vuota = a tempo indeterminato):</span><input type="date" id="srel" value="${esc(sp?.rel)}"></div>
+      <div class="row"><label class="chk"><input type="checkbox" id="sall" ${allSame?"checked":""}>Applica la data a tutte le varianti</label></div>
+      <div id="vrels">${variants.map(v=>`<div class="row vrr" data-vk="${esc(v.key)}"><span style="color:${esc(v.color)}">${esc(v.name)}</span><input type="date" value="${esc(sp?.vrel && v.key in sp.vrel ? sp.vrel[v.key] : (sp?.rel||""))}"></div>`).join("")}</div>
+    </div>
+    <p class="muted">Varianti presenti:</p><div>${variants.map(v=>`<label class="chk"><input type="checkbox" data-vc value="${esc(v.key)}" ${(sp?.variants||[]).includes(v.key)?"checked":""}><span style="color:${esc(v.color)}">${esc(v.name)}</span></label>`).join("")||"Crea prima delle varianti (🎨 Varianti)"}</div>
     <div class="row"><button id="ssave">Salva</button></div>`);
   $("#srar").onchange = () => { $("#srsw").style.background = rarityBg(rarityColor($("#srar").value)) || "transparent"; };
+  const syncRel = () => {
+    const na=$("#sna").checked, all=$("#sall").checked, rel=$("#srel").value;
+    $("#narea").style.display = na ? "" : "none";
+    const on = new Set([...d.querySelectorAll("input[data-vc]:checked")].map(c=>c.value));
+    d.querySelectorAll(".vrr").forEach(r => { if(all) r.querySelector("input").value = rel; r.style.display = (!all && on.has(r.dataset.vk)) ? "" : "none"; });
+  };
+  $("#sna").onchange = $("#sall").onchange = syncRel; $("#srel").oninput = $("#srel").onchange = syncRel;
+  d.querySelectorAll("input[data-vc]").forEach(c => c.onchange = syncRel);
+  syncRel();
   $("#ssave").onclick = async () => {
     const name = $("#sn").value.trim(); if(!name) return toast("Nome mancante");
-    const vs = [...d.querySelectorAll("input[type=checkbox]:checked")].map(c=>c.value);
-    const av=$("#su").value.trim(), rar=rarityKey($("#srar").value), data={name,avatar:av,rarity:rar,variants:vs};
+    const vs = [...d.querySelectorAll("input[data-vc]:checked")].map(c=>c.value);
+    const na=$("#sna").checked, rel=na?$("#srel").value:"", vrel={};
+    if(na) vs.forEach(k => { vrel[k] = $("#sall").checked ? rel : (d.querySelector(`.vrr[data-vk="${k}"] input`)?.value||""); });
+    const av=$("#su").value.trim(), rar=rarityKey($("#srar").value), data={name,avatar:av,rarity:rar,variants:vs,na,rel,vrel};
     if(!sp) data.order=Math.max(-1,...sprites.map(s=>s.order??-1))+1;
-    await setDoc(doc(db,"sprites",sp?.id||slug(name)),data,{merge:true});
-    if(!sp) logEv(`Aggiunto spiritello «${name}»`);
+    // in modifica updateDoc sostituisce per intero la mappa vrel (con setDoc+merge le date tolte resterebbero)
+    if(sp) await updateDoc(doc(db,"sprites",sp.id),data); else await setDoc(doc(db,"sprites",slug(name)),data,{merge:true});
+    if(!sp) logEv(`Aggiunto spiritello «${name}»`+(na?` (non disponibile, rilascio ${fmtDate(rel)||"a tempo indeterminato"})`:""));
     else {
       const vn=k=>variants.find(v=>v.key===k)?.name||k, old=sp.variants||[], ch=[];
       if(sp.name!==name) ch.push(`nome cambiato da «${sp.name}» a «${name}»`);
       if((sp.avatar||"")!==av) ch.push("avatar modificato");
       if(rarityKey(sp.rarity)!==rar) ch.push(`rarità cambiata da ${rarityKey(sp.rarity)||"nessuna"} a ${rar||"nessuna"}`);
+      const sj=o=>JSON.stringify(Object.entries(o||{}).sort());
+      if(!!sp.na!==na) ch.push(na?"reso non disponibile":"reso disponibile");
+      if(na && (sp.rel||"")!==rel) ch.push(`rilascio da ${fmtDate(sp.rel)||"indeterminato"} a ${fmtDate(rel)||"indeterminato"}`);
+      if(na && sp.na && sj(sp.vrel)!==sj(vrel)) ch.push("date di rilascio delle varianti modificate");
       const add=vs.filter(k=>!old.includes(k)), rem=old.filter(k=>!vs.includes(k));
       if(add.length) ch.push("varianti aggiunte: "+add.map(vn).join(", "));
       if(rem.length) ch.push("varianti eliminate: "+rem.map(vn).join(", "));
@@ -186,11 +247,13 @@ const saveVariants = l => setDoc(doc(db,"config","variants"),{list:l});
 function dlgVariants(){
   const d = dlg(`<h3>Varianti (valgono per tutti gli spiritelli)</h3>
     <p class="muted">Usa le frecce ▲▼ per spostare una variante: l'ordine vale per tutti gli spiritelli e si salva subito. I dati degli utenti non vengono toccati.</p>
-    ${variants.map(v=>`<div class="row vrow" data-k="${esc(v.key)}"><span class="mv"><button class="ghost" data-a="up" title="Sposta su">▲</button><button class="ghost" data-a="down" title="Sposta giù">▼</button></span><input type="color" value="${esc(v.color)}"><input value="${esc(v.name)}">
+    ${variants.map(v=>`<div class="row vrow" data-k="${esc(v.key)}"><span class="mv"><button class="ghost" data-a="up" title="Sposta su">▲</button><button class="ghost" data-a="down" title="Sposta giù">▼</button></span><input type="color" value="${esc(v.color)}"><input class="vnm" value="${esc(v.name)}"><label class="chk" title="Variante non disponibile in tutti gli spiritelli"><input type="checkbox" class="vna" ${v.na?"checked":""}>non disp.</label><input type="date" class="vrl" ${v.na?"":"disabled"} value="${esc(v.rel)}" title="Data di rilascio (vuota = a tempo indeterminato)">${v.na&&v.rel&&v.rel<=todayStr()?'<span class="muted">(già disponibile)</span>':""}
       <button data-a="save">Salva</button><button class="danger" data-a="del">🗑</button></div>`).join("")}
     <hr><h3>Nuova variante</h3>
     <div class="row"><input type="color" id="nc" value="${DEFAULT_VARIANT_COLOR}"><input id="nn" placeholder="Nome">
-    <label class="chk"><input type="checkbox" id="nall" checked>aggiungi a tutti gli spiritelli</label><button id="nadd">Crea</button></div>`);
+    <label class="chk"><input type="checkbox" id="nall" checked>aggiungi a tutti gli spiritelli</label><button id="nadd">Crea</button></div>
+    <div class="row"><label class="chk"><input type="checkbox" id="nna">non disponibile</label><span class="muted">rilascio (vuoto = a tempo indeterminato):</span><input type="date" id="nrel" disabled></div>`);
+  $("#nna").onchange = () => { $("#nrel").disabled = !$("#nna").checked; };
   // Riordino a tasti. Cambia solo l'ordine della lista globale (config/variants): le chiavi delle varianti restano uguali,
   // quindi gli stati salvati dagli utenti (idSpiritello__chiaveVariante) e le varianti di ogni spiritello non vengono toccati.
   let curKeys = variants.map(v=>v.key);   // ultimo ordine inviato al database
@@ -211,15 +274,19 @@ function dlgVariants(){
     try { await saveVariants(l); toast("Ordine salvato"); }
     catch(err){ toast("Errore nel salvataggio dell'ordine"); d.close(); dlgVariants(); }
   };
+  d.onchange = e => { if(e.target.classList.contains("vna")) e.target.closest(".vrow").querySelector(".vrl").disabled = !e.target.checked; };
   d.onclick = async e => {
     const r = e.target.closest("[data-k]"), a = e.target.dataset.a; if(!r||!a) return;
     if(a==="up"||a==="down") return moveRow(r,a);
     const i = variants.findIndex(v=>v.key===r.dataset.k); if(i<0) return;
     const l=variants.map(v=>({...v}));
     if(a==="save"){
-      const o=variants[i]; l[i].color=r.querySelector("input[type=color]").value; l[i].name=r.querySelector("input:not([type=color])").value.trim()||l[i].name;
+      const o=variants[i]; l[i].color=r.querySelector("input[type=color]").value; l[i].name=r.querySelector(".vnm").value.trim()||l[i].name;
+      if(r.querySelector(".vna").checked){ l[i].na=true; l[i].rel=r.querySelector(".vrl").value; } else { delete l[i].na; delete l[i].rel; }
       await saveVariants(l); toast("Salvato");
       const ch=[]; if(o.name!==l[i].name) ch.push(`nome da «${o.name}» a «${l[i].name}»`); if(o.color!==l[i].color) ch.push(`colore da ${o.color} a ${l[i].color}`);
+      if(!!o.na!==!!l[i].na) ch.push(l[i].na?"reso non disponibile":"reso disponibile");
+      if(l[i].na && (o.rel||"")!==(l[i].rel||"")) ch.push(`rilascio da ${fmtDate(o.rel)||"indeterminato"} a ${fmtDate(l[i].rel)||"indeterminato"}`);
       if(ch.length) logEv(`Variante «${o.name}» modificata: `+ch.join("; "));
     }
     if(a==="del" && confirm(`Eliminare la variante ${l[i].name} da tutti gli spiritelli?`)){
@@ -230,7 +297,8 @@ function dlgVariants(){
   $("#nadd").onclick = async () => {
     const name=$("#nn").value.trim(), key=slug(name); if(!key) return toast("Nome mancante");
     if(variants.some(v=>v.key===key)) return toast("Esiste già");
-    await saveVariants([...variants,{key,name,color:$("#nc").value}]); logEv(`Aggiunta nuova variante «${name}» (colore ${$("#nc").value})`);
+    const nv={key,name,color:$("#nc").value}; if($("#nna").checked){ nv.na=true; nv.rel=$("#nrel").value; }
+    await saveVariants([...variants,nv]); logEv(`Aggiunta nuova variante «${name}» (colore ${nv.color})`+(nv.na?` - non disponibile, rilascio ${fmtDate(nv.rel)||"a tempo indeterminato"}`:""));
     if($("#nall").checked){ const b=writeBatch(db); sprites.forEach(s=>b.update(doc(db,"sprites",s.id),{variants:arrayUnion(key)})); await b.commit(); }
     d.close(); toast("Variante creata");
   };
@@ -247,23 +315,30 @@ async function readRows(f){
   const wb=XLSX.read(await f.arrayBuffer()); return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:""}).map(r=>r.map(c=>String(c).trim()));
 }
 function dlgImport(){
-  const d = dlg(`<h3>Importa spiritelli</h3><p class="muted">Una riga per spiritello: <b>Nome; rarità; URL (o -); variante1; variante2…</b><br>Rarità: ${Object.keys(RARITIES).join(", ")} oppure - (nessuno sfondo). Un file senza colonna rarità (<b>Nome; URL; varianti…</b>) viene riconosciuto e lascia invariate le rarità esistenti.<br>Formati: txt, csv, xlsx, ods. Le varianti vengono <b>sostituite</b> da quelle del file e gli spiritelli seguono l'ordine del foglio; quelli già esistenti vengono aggiornati.</p>
+  const d = dlg(`<h3>Importa spiritelli</h3><p class="muted">Una riga per spiritello: <b>Nome; rarità; disponibilità; data rilascio; URL (o -); variante1; variante2…</b><br>Rarità: ${Object.keys(RARITIES).join(", ")} oppure - (nessuno sfondo). Disponibilità: <i>disponibile</i> o <i>non disponibile</i>; data di rilascio AAAA-MM-GG o GG/MM/AAAA, oppure - (a tempo indeterminato). I formati precedenti (<b>Nome; rarità; URL; varianti…</b> e <b>Nome; URL; varianti…</b>) vengono riconosciuti e lasciano invariate le impostazioni mancanti.<br>Formati: txt, csv, xlsx, ods. Le varianti vengono <b>sostituite</b> da quelle del file e gli spiritelli seguono l'ordine del foglio; quelli già esistenti vengono aggiornati.</p>
     <div class="row"><input type="file" id="ifile" accept=".txt,.csv,.xlsx,.xls,.ods"><button id="igo">Importa</button></div>
     <div class="row"><label class="chk"><input type="checkbox" id="irep">Elimina gli spiritelli non presenti nel file</label></div>`);
   $("#igo").onclick = async () => {
     const f=$("#ifile").files[0]; if(!f) return toast("Scegli un file");
     let rows=(await readRows(f)).filter(r=>r[0]); const header = rows.length&&/^(nome|name)$/i.test(rows[0][0]) ? rows.shift() : null;
     // Colonna rarità presente? Con intestazione: se la 2ª cella non parla di avatar/URL. Senza: se nessuna riga ha un URL nella 2ª colonna.
-    const hasRar = header ? !/avatar|url|immagine|image|link/i.test(header[1]||"") : !rows.some(r=>/^(https?:)?\/\/|^data:/i.test(r[1]||""));
-    const ci = hasRar ? 2 : 1;   // indice della colonna avatar; le varianti iniziano subito dopo
+    // Colonne disponibilità e data presenti? Con intestazione: se la 3ª cella parla di disponibilità. Senza: se qualche riga ha "disponibile" / "non disponibile" nella 3ª colonna.
+    const hasAv = header ? /disponib/i.test(header[2]||"") : rows.some(r=>/^(non\s+)?disponibile$/i.test(r[2]||""));
+    const hasRar = hasAv || (header ? !/avatar|url|immagine|image|link/i.test(header[1]||"") : !rows.some(r=>/^(https?:)?\/\/|^data:/i.test(r[1]||"")));
+    const ci = hasAv ? 4 : hasRar ? 2 : 1;   // indice della colonna avatar; le varianti iniziano subito dopo
     const vl=[];   // solo le varianti del nuovo file, nell'ordine di comparsa (nome/colore già scelti vengono mantenuti)
     const ops=rows.map(r=>{
       const keys=r.slice(ci+1).filter(Boolean).map(n=>{const k=slug(n); if(k&&!vl.some(v=>v.key===k)){const o=variants.find(v=>v.key===k); vl.push(o?{...o}:{key:k,name:n,color:DEFAULT_VARIANT_COLOR});} return k;}).filter(Boolean);
       const old=sprites.find(s=>s.id===slug(r[0]));
-      return {id:slug(r[0]),name:r[0],avatar:(r[ci]&&r[ci]!=="-")?r[ci]:(old?.avatar||""),rarity:hasRar?rarityKey(r[1]):rarityKey(old?.rarity),variants:[...new Set(keys)]};
+      const na = hasAv ? /^non\s+disponibile$/i.test(r[2]||"") : !!old?.na;
+      const rel = hasAv ? (na ? parseDate(r[3]) : "") : (old?.rel||"");
+      // le date delle singole varianti si tengono solo se la data dello spiritello non è cambiata
+      const keepV = na && old && !!old.na===na && (old.rel||"")===rel;
+      const vrel = keepV ? Object.fromEntries(Object.entries(old.vrel||{}).filter(([k])=>keys.includes(k))) : {};
+      return {id:slug(r[0]),name:r[0],avatar:(r[ci]&&r[ci]!=="-")?r[ci]:(old?.avatar||""),rarity:hasRar?rarityKey(r[1]):rarityKey(old?.rarity),na,rel,vrel,variants:[...new Set(keys)]};
     }).filter(o=>o.id);
     const ids=new Set(ops.map(o=>o.id)), valid=new Set(vl.map(v=>v.key)), replace=$("#irep").checked;
-    const writes=ops.map((o,i)=>b=>b.set(doc(db,"sprites",o.id),{name:o.name,avatar:o.avatar,rarity:o.rarity,variants:o.variants,order:i}));  // order = riga del foglio
+    const writes=ops.map((o,i)=>b=>b.set(doc(db,"sprites",o.id),{name:o.name,avatar:o.avatar,rarity:o.rarity,na:o.na,rel:o.rel,vrel:o.vrel,variants:o.variants,order:i}));  // order = riga del foglio
     sprites.filter(s=>!ids.has(s.id)).forEach((s,i)=>writes.push(b=>replace ? b.delete(doc(db,"sprites",s.id)) : b.update(doc(db,"sprites",s.id),{order:ops.length+i,variants:(s.variants||[]).filter(k=>valid.has(k))})));
     await saveVariants(vl);
     for(let i=0;i<writes.length;i+=400){const b=writeBatch(db); writes.slice(i,i+400).forEach(w=>w(b)); await b.commit();}
@@ -275,7 +350,7 @@ function dlgExport(){
   const d = dlg(`<h3>Esporta database globale</h3><div class="row"><select id="efmt"><option value="csv">CSV</option><option value="txt">TXT</option><option value="xlsx">Excel (xlsx)</option><option value="ods">ODS</option></select><button id="ego">Scarica</button></div>`);
   $("#ego").onclick = () => {
     const vn=Object.fromEntries(variants.map(v=>[v.key,v.name]));
-    const rows=sprites.map(s=>[s.name,rarityKey(s.rarity)||"-",s.avatar||"-",...variants.filter(v=>(s.variants||[]).includes(v.key)).map(v=>vn[v.key])]);
+    const rows=sprites.map(s=>[s.name,rarityKey(s.rarity)||"-",s.na?"non disponibile":"disponibile",s.na?(s.rel||"-"):"-",s.avatar||"-",...variants.filter(v=>(s.variants||[]).includes(v.key)).map(v=>vn[v.key])]);
     const fmt=$("#efmt").value;
     if(fmt==="csv"||fmt==="txt") save(new Blob(["\uFEFF"+rows.map(r=>r.join(fmt==="csv"?";":"\t")).join("\n")],{type:"text/plain"}),"spiritelli."+fmt);
     else { const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),"Spiritelli"); XLSX.writeFile(wb,"spiritelli."+fmt,{bookType:fmt}); }
@@ -314,7 +389,7 @@ function buildPdf(){
   pdf.setFontSize(16); pdf.text("I miei spiritelli - "+(user.displayName||""),14,y); y+=9; pdf.setFontSize(10);
   const vn=Object.fromEntries(variants.map(v=>[v.key,v.name]));
   for(const sp of sprites){
-    const g=[[],[],[]]; (sp.variants||[]).forEach(v=>g[stateOf(sp.id,v)].push(vn[v]||v));
+    const g=[[],[],[]]; (sp.variants||[]).forEach(v=>{ const n=stateOf(sp.id,v), vo=variants.find(x=>x.key===v); if(n===0 && vo && lockInfo(sp,vo)) return; g[n].push(vn[v]||v); });
     const txt=`${sp.name}  |  Incoronati: ${g[2].join(", ")||"-"}  |  Posseduti: ${g[1].join(", ")||"-"}  |  Mancanti: ${g[0].join(", ")||"-"}`;
     const lines=pdf.splitTextToSize(txt,182);
     if(y+lines.length*5>285){pdf.addPage();y=16;}
