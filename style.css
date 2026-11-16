@@ -14,6 +14,9 @@
   --owned:#5be37d;         /* bollino posseduto */
   --crown:#ffd23d;         /* bollino incoronato */
   --friend:#7fe3ff;        /* nomi amici (sempre leggibili) */
+  --pill-bg:#f3dfa6;        /* riquadro "pillola": contatore Posseduti e Ordina per */
+  --pill-text:#4a2c17;
+  --pill-num:#1f7a3a;      /* numero dei posseduti */
   --radius:16px;
   --font:"Baloo 2",system-ui,"Segoe UI",Roboto,sans-serif;
   --font-title:"Pirata One","Baloo 2",serif;
@@ -51,9 +54,12 @@ button:disabled:active{transform:none;box-shadow:0 4px 0 var(--outline)}
 input,select{background:#2a170b;color:var(--text);border:3px solid var(--outline);border-radius:10px;padding:6px 8px}
 input[type=color]{padding:0;width:42px;height:36px;background:none}
 #toolbar{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px;align-items:center}
-.counter{padding:5px 14px;border-radius:999px;border:3px solid var(--outline);background:#f3dfa6;color:#4a2c17;
-  font-weight:800;font-size:.95rem;white-space:nowrap;box-shadow:0 3px 0 var(--outline)}
-.counter b{color:#1f7a3a}
+/* Riquadro "pillola" condiviso da contatore (Posseduti) e Ordina per: modifica solo queste regole per averli uguali in ogni tema */
+.pill{display:inline-flex;align-items:center;gap:8px;padding:5px 14px;border-radius:999px;border:3px solid var(--outline);
+  background:var(--pill-bg);color:var(--pill-text);font-weight:800;font-size:.95rem;white-space:nowrap;box-shadow:0 3px 0 var(--outline)}
+.pill b{color:var(--pill-num)}
+.pill select{padding:1px 6px;border-width:2px;border-radius:8px;font-size:.9rem}
+.pill button.sdir{padding:0 8px;font-size:.75rem;border-width:2px;box-shadow:0 2px 0 var(--outline)}
 .sprite{background:repeating-linear-gradient(180deg,var(--card) 0 46px,#42260f 46px 48px);
   border:3px solid var(--outline);border-radius:var(--radius);padding:12px;margin-bottom:16px;
   box-shadow:0 5px 0 var(--outline),inset 0 0 0 2px var(--card-border)}
@@ -103,7 +109,5 @@ dialog h3{margin-top:0;font-family:var(--font-title);font-weight:400;font-size:1
   padding:10px 16px;border-radius:12px;box-shadow:0 4px 0 var(--outline);opacity:0;pointer-events:none;transition:.3s;max-width:90vw;z-index:10}
 #toast.on{opacity:1}
 
-/* Ordina per */
-.sortbox{display:inline-flex;align-items:center;gap:6px}
-button.ghost.sdir{padding:3px 10px;font-size:.8rem}
+/* Ordina per: freccia attiva evidenziata */
 button.ghost.sdir.on{background:var(--accent);color:var(--accent-text)}

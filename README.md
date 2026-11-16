@@ -7,7 +7,7 @@ Web app per tenere traccia degli spiritelli di Fortnite. Funziona senza server: 
 | File | Contenuto |
 |---|---|
 | `index.html` | Struttura della pagina, librerie esterne (SheetJS per import/export, jsPDF per il PDF) e un piccolo script di diagnostica |
-| `style.css` | Stile. In cima c'è il blocco `TEMA STAGIONALE` con i colori e le dimensioni da cambiare ad ogni stagione |
+| `style.css` | Stile. In cima c'è il blocco `TEMA STAGIONALE` con i colori e le dimensioni da cambiare ad ogni stagione. Il contatore *Posseduti* e il controllo *Ordina per* condividono la stessa classe `.pill` (colori `--pill-bg`, `--pill-text`, `--pill-num`): cambiando quella regola si aggiornano entrambi |
 | `app.js` | Tutta la logica: Firebase, interfaccia, funzioni admin, amici, PDF, log |
 | `import_prova.csv` | File di esempio per l'import (Jonesy e Avventura, varianti base, oro, trucchi, hacker, cacciatore) |
 

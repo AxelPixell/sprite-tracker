@@ -11,6 +11,9 @@
   --owned:#46d37a;         /* bollino posseduto */
   --crown:#ffc83d;         /* bollino incoronato */
   --friend:#7fe3ff;        /* nomi amici (sempre leggibili) */
+  --pill-bg:var(--card);   /* riquadro "pillola": contatore Posseduti e Ordina per */
+  --pill-text:var(--text);
+  --pill-num:var(--owned); /* numero dei posseduti */
   --radius:14px;
   --font:system-ui,"Segoe UI",Roboto,sans-serif;
   --avatar-size:56px;
@@ -34,8 +37,12 @@ button.danger{background:#c0394b}
 button:hover{filter:brightness(1.15)}
 input,select{background:#150d26;color:var(--text);border:1px solid var(--card-border);border-radius:8px;padding:7px}
 input[type=color]{padding:0;width:38px;height:34px;border:0;background:none}
-.counter{padding:6px 12px;border-radius:999px;border:1px solid var(--card-border);background:var(--card);font-size:.9rem;white-space:nowrap}
-.counter b{color:var(--owned)}
+/* Riquadro "pillola" condiviso da contatore (Posseduti) e Ordina per: modifica solo queste regole per averli uguali in ogni tema */
+.pill{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;border:1px solid var(--card-border);
+  background:var(--pill-bg);color:var(--pill-text);font-size:.9rem;white-space:nowrap}
+.pill b{color:var(--pill-num)}
+.pill select{padding:2px 6px;font-size:.85rem}
+.pill button.sdir{padding:1px 8px;font-size:.75rem}
 #toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;align-items:center}
 .sprite{background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius);padding:12px;margin-bottom:12px}
 .bar{display:flex;align-items:center;gap:12px;margin-bottom:10px}
@@ -80,7 +87,5 @@ dialog h3{margin-top:0}
 .bar h2 small{font-size:.75rem;color:var(--muted);font-weight:400;margin-left:6px;white-space:nowrap}
 .vrr{margin:4px 0}
 
-/* Ordina per */
-.sortbox{display:inline-flex;align-items:center;gap:6px}
-button.ghost.sdir{padding:3px 10px;font-size:.8rem}
+/* Ordina per: freccia attiva evidenziata */
 button.ghost.sdir.on{background:var(--accent);color:var(--accent-text)}
