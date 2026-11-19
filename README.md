@@ -49,6 +49,20 @@ Note di sicurezza:
 - Ogni utente loggato può leggere i documenti `users` (nome, amici, stati): serve per mostrare i nomi degli amici. L'UID funziona quindi da "chiave" per essere aggiunti come amico: condividilo solo con chi vuoi.
 - Facoltativo: in Google Cloud > Credenziali puoi limitare la chiave API al tuo dominio e impostare un avviso di budget.
 
+### Icona e schermata Home
+
+L'icona compare sulla scheda del browser e come icona del collegamento quando la pagina viene salvata sulla Home di Android (Chrome: menu ⋮ > *Aggiungi a schermata Home*). Serve questo gruppo di file, da caricare insieme agli altri nello stesso repository:
+
+| File | Uso |
+|---|---|
+| `favicon.ico`, `favicon-32.png` | scheda del browser |
+| `icon-192.png`, `icon-512.png` | icona del collegamento Android (sfondo trasparente) |
+| `icon-maskable-512.png` | versione "adattiva" di Android, con margine di sicurezza e sfondo pieno, per i launcher che ritagliano l'icona in cerchio o altre forme |
+| `apple-touch-icon.png` | iPhone e iPad |
+| `manifest.json` | nome, icone e colori usati da Android per il collegamento |
+
+I collegamenti sono nell'`<head>` di `index.html`. Il colore `#082a38` (barra del browser e sfondo di avvio) è scritto in `manifest.json`, nel tag `theme-color` di `index.html` e come sfondo di `icon-maskable-512.png` e `apple-touch-icon.png`: se un tema stagionale cambia lo sfondo, vanno aggiornati i primi due. Chi ha già salvato la pagina sulla Home deve rimuovere il collegamento e crearlo di nuovo per vedere la nuova icona.
+
 ## Come funziona
 
 ### Per tutti i visitatori
